@@ -406,6 +406,27 @@ body.light #toast{background:#fff;border-color:#ddd;color:#555;}
 #toast.show{opacity:1;}
 #canvas-toolbar{background:#1a1a1a;border-bottom:1px solid rgba(255,255,255,0.08);}
 body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
+/* ── VIDEO CARD STYLES ── */
+.frame-img .vid-play-btn{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.28);opacity:0;transition:opacity .15s;cursor:pointer;z-index:2;}
+.frame-img:hover .vid-play-btn{opacity:1;}
+.vid-play-btn svg{filter:drop-shadow(0 2px 6px rgba(0,0,0,0.7));}
+.vid-badge{position:absolute;top:5px;left:5px;background:rgba(0,0,0,0.65);border:1px solid rgba(255,255,255,0.18);border-radius:4px;font-size:9px;font-weight:700;color:#ccc;padding:2px 6px;letter-spacing:.04em;pointer-events:none;z-index:3;}
+.frame-img .vid-thumb-img{width:100%;height:100%;object-fit:cover;display:block;}
+
+/* ── VIDEO PLAYER MODAL ── */
+#vid-player-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:550;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+#vid-player-overlay.open{display:flex;animation:fadeIn .18s ease both;}
+#vid-player-wrap{position:relative;width:90vw;max-width:1200px;background:#000;border-radius:10px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.8);}
+#vid-player-wrap video{width:100%;display:block;max-height:80vh;background:#000;}
+#vid-player-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.5);color:#aaa;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;z-index:10;transition:background .15s,color .15s;}
+#vid-player-close:hover{background:rgba(255,255,255,0.15);color:#fff;}
+#vid-player-meta{font-size:12px;color:#555;text-align:center;}
+#vid-player-actions{display:flex;gap:8px;}
+.vid-player-btn{font-size:12px;padding:5px 13px;border-radius:7px;border:1px solid rgba(255,255,255,0.16);background:transparent;color:#888;cursor:pointer;font-family:inherit;transition:background .12s,color .12s;}
+.vid-player-btn:hover{background:#252525;color:#ccc;}
+.vid-player-btn.primary{background:#3b82f6;color:#fff;border-color:transparent;}
+.vid-player-btn.primary:hover{background:#2563eb;}
+
 /* ── ANNOTATOR ── */
 #annotator-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:500;flex-direction:column;}
 #annotator-overlay.open{display:flex;}
@@ -442,109 +463,15 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
 .ann-pin:hover{background:#fbbf24;transform:translate(-50%,-50%) scale(1.15);}
 .ann-pin-tooltip{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);background:#1e1e1e;border:1px solid rgba(255,255,255,0.15);color:#eee;font-size:11px;padding:5px 9px;border-radius:6px;white-space:pre-wrap;max-width:200px;pointer-events:none;z-index:20;box-shadow:0 4px 12px rgba(0,0,0,0.5);}
 #ann-bottombar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:8px 14px;background:#1a1a1a;border-top:1px solid rgba(255,255,255,0.1);flex-shrink:0;}
-/* ── AUTH SCREEN ── */
-#auth-screen{display:none;position:fixed;inset:0;background:#0f0f0f;z-index:1000;flex-direction:column;align-items:center;justify-content:center;}
-.auth-card{background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:40px;width:360px;max-width:90vw;}
-.auth-logo{display:flex;align-items:center;justify-content:center;gap:8px;font-size:20px;font-weight:700;color:#fff;margin-bottom:4px;}
-.auth-tagline{font-size:12px;color:#555;text-align:center;margin-bottom:28px;}
-.auth-form{display:flex;flex-direction:column;gap:10px;}
-.auth-input{background:#111;border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#ddd;font-size:13px;font-family:inherit;outline:none;padding:10px 12px;width:100%;box-sizing:border-box;}
-.auth-input:focus{border-color:rgba(59,130,246,0.6);}
-.auth-input::placeholder{color:#383838;}
-.auth-btn-primary{background:#3b82f6;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;padding:10px;width:100%;transition:background .15s;}
-.auth-btn-primary:hover{background:#2563eb;}
-.auth-btn-primary:disabled{background:#1e3a5f;cursor:default;opacity:.6;}
-.auth-error{color:#f87171;font-size:12px;min-height:16px;text-align:center;}
-.auth-success{color:#4ade80;font-size:12px;text-align:center;}
-.auth-switch{font-size:12px;color:#555;text-align:center;margin-top:2px;}
-.auth-switch a{color:#3b82f6;text-decoration:none;}
-.auth-switch a:hover{text-decoration:underline;}
-/* ── DASHBOARD SCREEN ── */
-#dashboard-screen{display:none;position:fixed;inset:0;background:#141414;z-index:999;flex-direction:column;}
-.dash-header{display:flex;align-items:center;gap:12px;padding:0 24px;height:52px;background:#1e1e1e;border-bottom:1px solid rgba(255,255,255,0.1);flex-shrink:0;}
-.dash-header-logo{display:flex;align-items:center;gap:6px;font-size:15px;font-weight:700;color:#fff;}
-.dash-user-email{font-size:12px;color:#555;}
-.dash-signout-btn{background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#888;cursor:pointer;font-size:12px;font-family:inherit;padding:5px 12px;}
-.dash-signout-btn:hover{background:#2a2a2a;color:#ccc;}
-.dash-body{flex:1;overflow-y:auto;padding:32px 40px;max-width:800px;margin:0 auto;width:100%;box-sizing:border-box;}
-.dash-title-row{display:flex;align-items:center;gap:12px;margin-bottom:24px;}
-.dash-title-row h1{font-size:22px;font-weight:700;color:#eee;flex:1;margin:0;}
-.dash-new-btn{background:#3b82f6;border:none;border-radius:8px;color:#fff;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;padding:9px 18px;}
-.dash-new-btn:hover{background:#2563eb;}
-.dash-project-row{display:flex;align-items:center;background:#1e1e1e;border:1px solid rgba(255,255,255,0.08);border-radius:10px;margin-bottom:10px;padding:16px 20px;gap:12px;transition:background .12s;}
-.dash-project-row:hover{background:#252525;}
-.dash-project-info{flex:1;cursor:pointer;min-width:0;}
-.dash-project-name{font-size:14px;font-weight:600;color:#ddd;margin-bottom:3px;}
-.dash-project-date{font-size:11px;color:#555;}
-.dash-project-actions{display:flex;gap:6px;flex-shrink:0;}
-.dash-project-actions .btn{padding:5px 10px;font-size:11px;}
-.btn-danger{border-color:rgba(248,113,113,0.4)!important;color:#f87171!important;}
-.btn-danger:hover{background:rgba(248,113,113,0.1)!important;}
-.dash-empty{color:#444;font-size:14px;text-align:center;padding:60px 0;}
-.dash-loading{color:#555;font-size:13px;padding:40px 0;text-align:center;}
-/* ── TOPBAR EXTRAS ── */
-.dash-back-btn{background:transparent;border:1px solid rgba(255,255,255,0.12);border-radius:6px;color:#666;cursor:pointer;display:flex;align-items:center;gap:5px;font-size:11px;font-family:inherit;padding:5px 10px;flex-shrink:0;}
-.dash-back-btn:hover{background:#2a2a2a;color:#ccc;}
-#topbar-project-name{font-size:12px;color:#555;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 </style>
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
-<div id="auth-screen" style="display:flex;">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="2" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><line x1="4" y1="2" x2="4" y2="16" stroke="currentColor" stroke-width="1.1"/><line x1="14" y1="2" x2="14" y2="16" stroke="currentColor" stroke-width="1.1"/></svg>
-      frames
-    </div>
-    <div class="auth-tagline">storyboard app</div>
-    <div id="auth-mode-signin" class="auth-form">
-      <input class="auth-input" id="auth-email" type="email" placeholder="email" autocomplete="email"/>
-      <input class="auth-input" id="auth-password" type="password" placeholder="password" autocomplete="current-password"/>
-      <button class="auth-btn-primary" id="auth-signin-btn">sign in</button>
-      <div class="auth-error" id="auth-error"></div>
-      <div class="auth-switch">no account? <a href="#" id="auth-to-signup">create one</a></div>
-    </div>
-    <div id="auth-mode-signup" class="auth-form" style="display:none;">
-      <input class="auth-input" id="signup-email" type="email" placeholder="email" autocomplete="email"/>
-      <input class="auth-input" id="signup-password" type="password" placeholder="password (min 6 chars)" autocomplete="new-password"/>
-      <button class="auth-btn-primary" id="auth-signup-btn">create account</button>
-      <div class="auth-error" id="signup-error"></div>
-      <div class="auth-switch">have an account? <a href="#" id="auth-to-signin">sign in</a></div>
-    </div>
-  </div>
-</div>
-
-<!-- DASHBOARD SCREEN -->
-<div id="dashboard-screen">
-  <div class="dash-header">
-    <div class="dash-header-logo">
-      <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><rect x="1" y="2" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><line x1="4" y1="2" x2="4" y2="16" stroke="currentColor" stroke-width="1.1"/><line x1="14" y1="2" x2="14" y2="16" stroke="currentColor" stroke-width="1.1"/></svg>
-      frames
-    </div>
-    <div class="spacer"></div>
-    <span class="dash-user-email" id="dash-user-email"></span>
-    <button class="dash-signout-btn" id="dash-signout-btn">sign out</button>
-  </div>
-  <div class="dash-body">
-    <div class="dash-title-row">
-      <h1>projects</h1>
-      <button class="dash-new-btn" id="dash-new-btn">+ new project</button>
-    </div>
-    <div id="dash-projects-list"><div class="dash-loading">loading…</div></div>
-  </div>
-</div>
-
-<div id="topbar" style="display:none;">
+<div id="topbar">
   <div class="logo">
     <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><rect x="1" y="2" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><line x1="4" y1="2" x2="4" y2="16" stroke="currentColor" stroke-width="1.1"/><line x1="14" y1="2" x2="14" y2="16" stroke="currentColor" stroke-width="1.1"/></svg>
     frames
   </div>
-  <button class="dash-back-btn" id="dash-back-btn">
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><polyline points="6,1 2,5 6,9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    projects
-  </button>
-  <span id="topbar-project-name"></span>
   <div class="spacer"></div>
   <span id="save-indicator">—</span>
   <button class="icon-btn" id="backup-btn" title="download backup">
@@ -562,11 +489,11 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
   </button>
 </div>
 
-<div id="tabsbar" style="display:none;">
+<div id="tabsbar">
   <div class="tab-add" id="tab-add-btn">+</div>
 </div>
 
-<div id="metabar" style="display:none;">
+<div id="metabar">
   <div class="meta-field"><span class="meta-label">Client</span><input class="meta-input" id="meta-client" placeholder="client name"/></div>
   <div class="meta-field"><span class="meta-label">Project</span><input class="meta-input" id="meta-project" placeholder="project title"/></div>
   <div class="meta-field" style="max-width:150px;"><span class="meta-label">Job #</span><input class="meta-input" id="meta-job" placeholder="00000"/></div>
@@ -574,7 +501,7 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
 </div>
 
 <!-- single unified toolbar bar -->
-<div id="toolbar" style="display:none;">
+<div id="toolbar">
   <!-- script toggle -->
   <button class="icon-btn" id="script-open-btn" title="open script panel" style="width:26px;height:26px;border-radius:5px;">
     <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="13" height="13" rx="2" stroke="currentColor" stroke-width="1.2"/><line x1="5" y1="1" x2="5" y2="14" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="4.5" x2="13" y2="4.5" stroke="currentColor" stroke-width="1.1"/><line x1="7" y1="7.5" x2="13" y2="7.5" stroke="currentColor" stroke-width="1.1"/><line x1="7" y1="10.5" x2="11" y2="10.5" stroke="currentColor" stroke-width="1.1"/></svg>
@@ -620,7 +547,7 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
   <span id="font-size-label" style="font-size:10px;color:#555;min-width:26px;text-align:center;">12</span>
 </div>
 
-<div id="main-body" style="display:none;">
+<div id="main-body">
 
   <!-- SCRIPT PANEL -->
   <div id="script-panel" class="hidden">
@@ -760,6 +687,20 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
 <!-- DRAG GHOST -->
 <div id="drag-ghost" style="display:none;"></div>
 
+<!-- VIDEO PLAYER OVERLAY -->
+<div id="vid-player-overlay">
+  <div id="vid-player-wrap">
+    <button id="vid-player-close">✕</button>
+    <video id="vid-player-el" controls playsinline></video>
+  </div>
+  <div id="vid-player-meta"></div>
+  <div id="vid-player-actions">
+    <button class="vid-player-btn" id="vid-player-dropbox-btn" style="display:none;">open in dropbox ↗</button>
+    <button class="vid-player-btn" id="vid-player-open-btn">open in new tab ↗</button>
+    <button class="vid-player-btn" id="vid-player-dismiss-btn">close</button>
+  </div>
+</div>
+
 <!-- ANNOTATOR OVERLAY -->
 <div id="annotator-overlay">
   <div id="ann-topbar">
@@ -859,21 +800,12 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
 
 <div id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-// ── SUPABASE ──────────────────────────────────────────────────────────────
-const SUPABASE_URL='https://uyeeeqssxxspaskemtlz.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV5ZWVlcXNzeHhzcGFza2VtdGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NTg3MDMsImV4cCI6MjA5MTQzNDcwM30.HjyMjj92yA9VoIcGlMsM46K8RY8gBycrBC1aUodrNrk';
-const {createClient}=supabase;
-const sb=createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-let currentProjectId=null;
-let currentUserId=null;
 
 const CUSTOM_FIELDS=[
   {key:'camera',       label:'camera',        placeholder:'camera angle, lens, movement…'},
@@ -910,13 +842,13 @@ let sbRedo=[];      // storyboard redo stack
 function activeBoard(){return boards.find(b=>b.id===activeBoardId);}
 
 function makeFrame(vo='',action=''){
-  const f={id:crypto.randomUUID(),image:null,imagePath:null,annLayerPath:null};
+  const f={id:nextFrameId++,image:null};
   ALL_FIELDS.forEach(fd=>f[fd.key]='');
   f.voiceOver=vo; f.action=action;
   return f;
 }
 function makeBoard(name){
-  return{id:crypto.randomUUID(),name:name||'board 1',frames:[makeFrame(),makeFrame(),makeFrame()],
+  return{id:nextBoardId++,name:name||'board 1',frames:[makeFrame(),makeFrame(),makeFrame()],
     sectionOrder:['voiceOver','action'],enabledFields:['voiceOver','action'],
     scriptHtml:'',meta:{client:'',project:'',job:'',version:''}};
 }
@@ -968,54 +900,10 @@ function loadFromBoard(){
 function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFrameId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
 function autoSave(){
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
-  autoSaveTimer=setTimeout(async()=>{
-    // Always keep localStorage as offline fallback
-    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(getState()));}catch(e){}
-    if(currentProjectId&&currentUserId){
-      try{await saveCurrentBoardToSupabase();setSaveIndicator('saved');}
-      catch(e){console.error('cloud save error:',e);setSaveIndicator('saved');}
-    } else {
-      setSaveIndicator('saved');
-    }
+  autoSaveTimer=setTimeout(()=>{
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(getState()));setSaveIndicator('saved');}
+    catch(e){setSaveIndicator('error');}
   },700);
-}
-async function saveCurrentBoardToSupabase(){
-  const b=activeBoard();if(!b)return;
-  syncToBoard();
-  const {error:bErr}=await sb.from('boards').upsert({
-    id:b.id,project_id:currentProjectId,name:b.name,
-    meta:b.meta,section_order:b.sectionOrder,enabled_fields:b.enabledFields,
-    script_html:b.scriptHtml,sort_order:boards.indexOf(b)
-  },{onConflict:'id'});
-  if(bErr)throw bErr;
-  if(!b.frames.length)return;
-  const frameData=b.frames.map((f,i)=>({
-    id:f.id,board_id:b.id,sort_order:i,
-    voice_over:f.voiceOver||'',action:f.action||'',camera:f.camera||'',
-    music:f.music||'',sound_effects:f.soundEffects||'',link:f.link||'',
-    duration:f.duration||'',director_notes:f.directorNotes||'',
-    image_path:f.imagePath||null,ann_layer_path:f.annLayerPath||null,
-    ann_notes:f.annNotes||'',ann_pins:f.annPins||null
-  }));
-  const {error:fErr}=await sb.from('frames').upsert(frameData,{onConflict:'id'});
-  if(fErr)throw fErr;
-  // Delete frames removed from UI
-  if(b.frames.length>0){
-    const ids=b.frames.map(f=>f.id);
-    await sb.from('frames').delete().eq('board_id',b.id).not('id','in',`(${ids.map(id=>`"${id}"`).join(',')})`)
-      .then(()=>{}).catch(()=>{});
-  }
-}
-function getPublicUrl(path){
-  const{data}=sb.storage.from('frames-images').getPublicUrl(path);
-  return data.publicUrl;
-}
-async function uploadImageToStorage(file,frameId){
-  const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
-  const path=`${currentUserId}/${currentProjectId}/${frameId}/image.${ext}`;
-  const{error}=await sb.storage.from('frames-images').upload(path,file,{upsert:true,contentType:file.type||'image/jpeg'});
-  if(error)throw error;
-  return{path,url:getPublicUrl(path)};
 }
 function setSaveIndicator(s){
   const el=$('save-indicator');clearTimeout(saveIndicatorTimer);
@@ -1047,179 +935,13 @@ function loadState(state){
 }
 function $(id){return document.getElementById(id);}
 
-// ── AUTH FUNCTIONS ─────────────────────────────────────────────────────────
-async function signIn(){
-  const email=$('auth-email').value.trim();
-  const password=$('auth-password').value;
-  $('auth-error').textContent='';
-  const btn=$('auth-signin-btn');btn.disabled=true;btn.textContent='signing in…';
-  const{error}=await sb.auth.signInWithPassword({email,password});
-  btn.disabled=false;btn.textContent='sign in';
-  if(error){$('auth-error').textContent=error.message;}
-}
-async function signUp(){
-  const email=$('signup-email').value.trim();
-  const password=$('signup-password').value;
-  $('signup-error').textContent='';
-  const btn=$('auth-signup-btn');btn.disabled=true;btn.textContent='creating…';
-  const{error}=await sb.auth.signUp({email,password});
-  btn.disabled=false;btn.textContent='create account';
-  if(error){$('signup-error').textContent=error.message;}
-  else{
-    const el=$('signup-error');
-    el.textContent='check your email to confirm your account';
-    el.className='auth-success';
-  }
-}
-async function signOut(){
-  await sb.auth.signOut();
-}
-
-// ── STATE MACHINE ──────────────────────────────────────────────────────────
-function showAuth(){
-  $('auth-screen').style.display='flex';
-  $('dashboard-screen').style.display='none';
-  $('topbar').style.display='none';
-  $('tabsbar').style.display='none';
-  $('metabar').style.display='none';
-  $('toolbar').style.display='none';
-  $('main-body').style.display='none';
-  // Clear auth form state
-  $('auth-email').value='';$('auth-password').value='';
-  $('auth-error').textContent='';
-  $('auth-mode-signin').style.display='flex';
-  $('auth-mode-signup').style.display='none';
-}
-function showDashboard(){
-  $('auth-screen').style.display='none';
-  $('dashboard-screen').style.display='flex';
-  $('topbar').style.display='none';
-  $('tabsbar').style.display='none';
-  $('metabar').style.display='none';
-  $('toolbar').style.display='none';
-  $('main-body').style.display='none';
-  loadProjects();
-}
-function showEditor(){
-  $('auth-screen').style.display='none';
-  $('dashboard-screen').style.display='none';
-  $('topbar').style.display='flex';
-  $('tabsbar').style.display='flex';
-  $('metabar').style.display='flex';
-  $('toolbar').style.display='flex';
-  $('main-body').style.display='flex';
-  $('resize-handle').style.display='none';
-  renderTabs();loadFromBoard();renderAll();
-}
-
-// ── DASHBOARD ──────────────────────────────────────────────────────────────
-async function loadProjects(){
-  const list=$('dash-projects-list');
-  list.innerHTML='<div class="dash-loading">loading…</div>';
-  const{data:projects,error}=await sb.from('projects').select('*').order('updated_at',{ascending:false});
-  if(error){list.innerHTML='<div class="dash-empty" style="color:#f87171;">error loading projects</div>';return;}
-  if(!projects||projects.length===0){
-    list.innerHTML='<div class="dash-empty">no projects yet — click + new project to get started</div>';
-    return;
-  }
-  list.innerHTML='';
-  projects.forEach(p=>{
-    const row=document.createElement('div');row.className='dash-project-row';
-    const updated=new Date(p.updated_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
-    const info=document.createElement('div');info.className='dash-project-info';
-    info.innerHTML=`<div class="dash-project-name">${escHtml(p.name)}</div><div class="dash-project-date">updated ${updated}</div>`;
-    info.addEventListener('click',()=>openProject(p.id,p.name));
-    const actions=document.createElement('div');actions.className='dash-project-actions';
-    const renBtn=document.createElement('button');renBtn.className='btn';renBtn.textContent='rename';
-    renBtn.addEventListener('click',e=>{e.stopPropagation();renameProject(p.id,p.name);});
-    const delBtn=document.createElement('button');delBtn.className='btn btn-danger';delBtn.textContent='delete';
-    delBtn.addEventListener('click',e=>{e.stopPropagation();deleteProject(p.id,p.name);});
-    actions.appendChild(renBtn);actions.appendChild(delBtn);
-    row.appendChild(info);row.appendChild(actions);
-    list.appendChild(row);
-  });
-}
-async function createProject(){
-  const name=prompt('Project name:','Untitled Project');
-  if(!name||!name.trim())return;
-  const{data:proj,error}=await sb.from('projects').insert({user_id:currentUserId,name:name.trim()}).select().single();
-  if(error){showToast('error creating project');return;}
-  currentProjectId=proj.id;
-  $('topbar-project-name').textContent=proj.name;
-  const b=makeBoard('board 1');
-  boards=[b];activeBoardId=b.id;
-  await saveCurrentBoardToSupabase();
-  showEditor();
-}
-async function openProject(id,name){
-  currentProjectId=id;
-  $('topbar-project-name').textContent=name||'';
-  showToast('loading…');
-  await loadProject(id);
-}
-async function loadProject(projectId){
-  const{data:boardsData,error:bErr}=await sb.from('boards').select('*').eq('project_id',projectId).order('sort_order');
-  if(bErr){showToast('error loading project');return;}
-  if(!boardsData||boardsData.length===0){
-    const b=makeBoard('board 1');
-    boards=[b];activeBoardId=b.id;
-    showEditor();
-    await saveCurrentBoardToSupabase();
-    return;
-  }
-  const boardIds=boardsData.map(b=>b.id);
-  const{data:framesData}=await sb.from('frames').select('*').in('board_id',boardIds).order('sort_order');
-  boards=boardsData.map(bd=>{
-    let bFrames=(framesData||[]).filter(f=>f.board_id===bd.id).map(f=>({
-      id:f.id,
-      image:f.image_path?getPublicUrl(f.image_path):null,imagePath:f.image_path||null,
-      annLayer:f.ann_layer_path?getPublicUrl(f.ann_layer_path):null,annLayerPath:f.ann_layer_path||null,
-      annNotes:f.ann_notes||'',annPins:f.ann_pins||[],
-      voiceOver:f.voice_over||'',action:f.action||'',camera:f.camera||'',
-      music:f.music||'',soundEffects:f.sound_effects||'',link:f.link||'',
-      duration:f.duration||'',directorNotes:f.director_notes||''
-    }));
-    if(bFrames.length===0)bFrames=[makeFrame(),makeFrame(),makeFrame()];
-    return{
-      id:bd.id,name:bd.name,frames:bFrames,
-      sectionOrder:bd.section_order||['voiceOver','action'],
-      enabledFields:bd.enabled_fields||['voiceOver','action'],
-      scriptHtml:bd.script_html||'',
-      meta:bd.meta||{client:'',project:'',job:'',version:''}
-    };
-  });
-  activeBoardId=boards[0].id;
-  showEditor();
-}
-async function deleteProject(id,name){
-  if(!confirm(`Delete "${name}"? This cannot be undone.`))return;
-  const{error}=await sb.from('projects').delete().eq('id',id);
-  if(error){showToast('error deleting project');return;}
-  loadProjects();
-}
-async function renameProject(id,currentName){
-  const name=prompt('New name:',currentName);
-  if(!name||!name.trim()||name===currentName)return;
-  const{error}=await sb.from('projects').update({name:name.trim()}).eq('id',id);
-  if(error){showToast('error renaming project');return;}
-  loadProjects();
-}
-function escHtml(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-
 // ── INIT ──────────────────────────────────────────────────────────────────
 function init(){
-  // ── AUTH LISTENERS ──
-  $('auth-signin-btn').addEventListener('click',signIn);
-  $('auth-signup-btn').addEventListener('click',signUp);
-  $('auth-to-signup').addEventListener('click',e=>{e.preventDefault();$('auth-mode-signin').style.display='none';$('auth-mode-signup').style.display='flex';$('auth-error').textContent='';});
-  $('auth-to-signin').addEventListener('click',e=>{e.preventDefault();$('auth-mode-signup').style.display='none';$('auth-mode-signin').style.display='flex';$('signup-error').textContent='';});
-  ['auth-email','auth-password'].forEach(id=>{$(id).addEventListener('keydown',e=>{if(e.key==='Enter')signIn();});});
-  ['signup-email','signup-password'].forEach(id=>{$(id).addEventListener('keydown',e=>{if(e.key==='Enter')signUp();});});
-  $('dash-signout-btn').addEventListener('click',signOut);
-  $('dash-new-btn').addEventListener('click',createProject);
-  $('dash-back-btn').addEventListener('click',()=>{syncToBoard();currentProjectId=null;showDashboard();});
+  let loaded=false;
+  try{const raw=localStorage.getItem(STORAGE_KEY);if(raw){loadState(JSON.parse(raw));loaded=true;}}catch(e){}
+  if(!loaded){const b=makeBoard('board 1');boards=[b];activeBoardId=b.id;}
+  renderTabs();loadFromBoard();renderAll();
 
-  // ── EDITOR LISTENERS ──
   $('theme-btn').addEventListener('click',toggleTheme);
   $('share-btn').addEventListener('click',openModal);
   $('modal-close').addEventListener('click',closeModal);
@@ -1230,6 +952,7 @@ function init(){
   $('backup-btn').addEventListener('click',downloadBackup);
   $('script-open-btn').addEventListener('click',toggleScript);
 
+  // Font size controls
   const slider=$('font-slider');
   const label=$('font-size-label');
   function applyFontSize(size){
@@ -1285,6 +1008,7 @@ function init(){
   $('sb-undo').addEventListener('click',sbUndo);
   $('sb-redo').addEventListener('click',sbRedo2);
 
+  // Global keyboard shortcuts (not in annotator)
   document.addEventListener('keydown',e=>{
     if($('annotator-overlay').classList.contains('open'))return;
     if($('presentation').classList.contains('open'))return;
@@ -1299,29 +1023,9 @@ function init(){
   $('pres-close').addEventListener('click',closePresentation);
   $('pres-next').addEventListener('click',presNext);
   $('pres-prev').addEventListener('click',presPrev);
+  initVideoPlayer();
   initAnnotatorSetup();
   initResizeHandle();
-
-  // ── AUTH STATE ──
-  sb.auth.onAuthStateChange((event,session)=>{
-    if(event==='SIGNED_IN'){
-      currentUserId=session.user.id;
-      $('dash-user-email').textContent=session.user.email;
-      showDashboard();
-    } else if(event==='SIGNED_OUT'){
-      currentUserId=null;currentProjectId=null;boards=[];
-      showAuth();
-    }
-  });
-  sb.auth.getSession().then(({data:{session}})=>{
-    if(session){
-      currentUserId=session.user.id;
-      $('dash-user-email').textContent=session.user.email;
-      showDashboard();
-    } else {
-      showAuth();
-    }
-  });
 }
 
 // ── RESIZE HANDLE ─────────────────────────────────────────────────────────
@@ -1769,28 +1473,19 @@ async function extractVOAndCreateFrames(arrayBuffer){
 }
 
 // ── TABS ──────────────────────────────────────────────────────────────────
-async function addBoard(){
+function addBoard(){
   syncToBoard();
   const b=makeBoard('board '+(boards.length+1));
   boards.push(b);activeBoardId=b.id;
-  renderTabs();loadFromBoard();renderAll();
-  if(currentProjectId&&currentUserId){
-    await sb.from('boards').upsert({id:b.id,project_id:currentProjectId,name:b.name,meta:b.meta,section_order:b.sectionOrder,enabled_fields:b.enabledFields,script_html:b.scriptHtml,sort_order:boards.length-1},{onConflict:'id'});
-    const frameData=b.frames.map((f,i)=>({id:f.id,board_id:b.id,sort_order:i,voice_over:'',action:'',camera:'',music:'',sound_effects:'',link:'',duration:'',director_notes:'',image_path:null,ann_layer_path:null,ann_notes:'',ann_pins:null}));
-    await sb.from('frames').insert(frameData);
-  }
-  autoSave();
+  renderTabs();loadFromBoard();renderAll();autoSave();
   setTimeout(()=>{const inp=document.querySelector('.board-tab.active .tab-name-input');if(inp)inp.select();},50);
 }
 function switchBoard(id){if(id===activeBoardId)return;syncToBoard();activeBoardId=id;renderTabs();loadFromBoard();renderAll();}
-async function deleteBoard(id){
+function deleteBoard(id){
   if(boards.length<=1){showToast("can't delete the only board");return;}
   boards=boards.filter(b=>b.id!==id);
   if(activeBoardId===id)activeBoardId=boards[boards.length-1].id;
   renderTabs();loadFromBoard();renderAll();autoSave();
-  if(currentProjectId&&currentUserId){
-    await sb.from('boards').delete().eq('id',id);
-  }
 }
 function renderTabs(){
   const bar=$('tabsbar');const addBtn=$('tab-add-btn');
@@ -1898,10 +1593,14 @@ function openFrameMenu(btn,frameId,frameIdx){
   let menu=wrap.querySelector('.frame-menu');
   if(!menu){menu=document.createElement('div');menu.className='frame-menu';wrap.appendChild(menu);}
   const b=activeBoard();const frame=b.frames.find(f=>f.id===frameId);
+  const hasMedia=!!(frame.image||frame.videoUrl);
+  const isDropbox=isDropboxUrl(frame.videoUrl||'');
   menu.innerHTML=`
     <div class="menu-item" data-action="dup"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="9" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 3V2a1 1 0 011-1h7a1 1 0 011 1v9a1 1 0 01-1 1h-1" stroke="currentColor" stroke-width="1.2"/></svg>duplicate frame</div>
+    <div class="menu-item" data-action="video"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="9" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><polygon points="10,5 13,7 10,9" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round" fill="none"/></svg>${frame.videoUrl?'edit video url':'attach video url'}</div>
+    ${isDropbox?`<div class="menu-item" data-action="opendropbox"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1l-6 3.5L7 8l6-3.5L7 1z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><path d="M1 9.5L7 13l6-3.5" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>open in dropbox ↗</div>`:''}
     <div class="menu-item" data-action="copyimg"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 10l3-4 2.5 3 1.5-2L11 10" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><circle cx="5" cy="5" r="1" fill="currentColor"/></svg>copy image from frame</div>
-    <div class="menu-item" data-action="clearimg" ${!frame.image?'style="opacity:.35;pointer-events:none;"':''}><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>clear image</div>
+    <div class="menu-item" data-action="clearimg" ${!hasMedia?'style="opacity:.35;pointer-events:none;"':''}><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>clear media</div>
     <div class="menu-divider"></div>
     <div class="menu-item danger" data-action="del"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M1 3h12M5 3V2h4v1M3 3l1 9h6l1-9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>delete frame</div>`;
   menu.querySelectorAll('.menu-item').forEach(item=>{
@@ -1909,11 +1608,13 @@ function openFrameMenu(btn,frameId,frameIdx){
       e.stopPropagation();menu.classList.remove('open');const action=item.dataset.action;
       if(action==='dup'){
         pushSBHistory();
-        const copy={...frame,id:crypto.randomUUID(),image:frame.image,imagePath:frame.imagePath,annLayerPath:frame.annLayerPath};
+        const copy={...frame,id:nextFrameId++,image:frame.image};
         ALL_FIELDS.forEach(fd=>copy[fd.key]=frame[fd.key]);
         b.frames.splice(frameIdx+1,0,copy);renderAll();autoSave();
-      }else if(action==='copyimg'){openImgPicker(frameId);}
-      else if(action==='clearimg'){pushSBHistory();frame.image=null;frame.annLayer=null;renderAll();autoSave();}
+      }else if(action==='video'){attachVideoUrl(frame);}
+      else if(action==='opendropbox'){window.open(frame.videoUrl,'_blank');}
+      else if(action==='copyimg'){openImgPicker(frameId);}
+      else if(action==='clearimg'){pushSBHistory();frame.image=null;frame.annLayer=null;frame.annPins=[];frame.videoUrl=null;frame.videoThumb=null;renderAll();autoSave();}
       else if(action==='del'){if(b.frames.length>1){pushSBHistory();b.frames.splice(frameIdx,1);renderAll();autoSave();}}
     });
   });
@@ -1983,7 +1684,39 @@ function renderBoard(){
     card.addEventListener('click',()=>setActiveFrame(frame.id));
 
     const imgArea=document.createElement('div');imgArea.className='frame-img';
-    if(frame.image){
+
+    if(frame.videoUrl){
+      // ── VIDEO FRAME ──
+      const badge=document.createElement('div');badge.className='vid-badge';
+      badge.textContent=isDropboxUrl(frame.videoUrl)?'DROPBOX':'VIDEO';
+      imgArea.appendChild(badge);
+
+      if(frame.videoThumb){
+        const img=document.createElement('img');img.src=frame.videoThumb;img.className='vid-thumb-img';imgArea.appendChild(img);
+      } else {
+        // placeholder
+        const ph=document.createElement('div');
+        ph.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;';
+        ph.innerHTML=`<svg width="28" height="28" viewBox="0 0 24 24" fill="none" style="color:#2a2a2a;"><rect x="1" y="3" width="22" height="18" rx="3" stroke="currentColor" stroke-width="1.3"/><polygon points="9,8 18,12 9,16" fill="currentColor" opacity=".4"/></svg><span style="font-size:10px;color:#333;">${isDropboxUrl(frame.videoUrl)?'dropbox video':'video'}</span>`;
+        imgArea.appendChild(ph);
+      }
+
+      // Play button overlay
+      const playBtn=document.createElement('div');playBtn.className='vid-play-btn';
+      playBtn.innerHTML=`<svg width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="21" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/><polygon points="17,13 35,22 17,31" fill="white"/></svg>`;
+      imgArea.appendChild(playBtn);
+
+      // Clear button
+      const clr=document.createElement('button');clr.className='img-clear-btn';clr.innerHTML='✕';
+      clr.addEventListener('click',e=>{e.stopPropagation();pushSBHistory();frame.videoUrl=null;frame.videoThumb=null;renderAll();autoSave();});
+      imgArea.appendChild(clr);
+
+      // Double-click or play button → open video player
+      const openVid=e=>{e.stopPropagation();openVideoPlayer(frame);};
+      imgArea.addEventListener('dblclick',openVid);
+      playBtn.addEventListener('click',openVid);
+
+    } else if(frame.image){
       const img=document.createElement('img');img.src=frame.image;imgArea.appendChild(img);
       // show annotation layer overlay if exists
       if(frame.annLayer){
@@ -2013,26 +1746,15 @@ function renderBoard(){
     }
     const fi=document.createElement('input');fi.type='file';fi.accept='image/*';
     fi.style.cssText='display:none;';
-    fi.addEventListener('change',async e=>{
+    fi.addEventListener('change',e=>{
       const file=e.target.files[0];if(!file)return;
-      if(currentProjectId&&currentUserId){
-        try{
-          showToast('uploading…');
-          const{path,url}=await uploadImageToStorage(file,frame.id);
-          frame.image=url;frame.imagePath=path;renderAll();autoSave();
-        }catch(err){
-          console.error('upload failed, using local:',err);
-          const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);
-        }
-      } else {
-        const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);
-      }
+      const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);
     });
     imgArea.appendChild(fi);
 
     // Single click on empty image area → upload; double-click on image → annotator
     imgArea.addEventListener('click',e=>{
-      if(frame.image)return;
+      if(frame.image||frame.videoUrl)return;
       fi.click();
     });
     imgArea.addEventListener('dblclick',e=>{
@@ -2043,14 +1765,18 @@ function renderBoard(){
     imgArea.addEventListener('dragleave',()=>card.classList.remove('img-drag-over'));
     imgArea.addEventListener('drop',e=>{
       card.classList.remove('img-drag-over');if(dragCardId)return;e.preventDefault();e.stopPropagation();
-      const file=e.dataTransfer.files[0];
-      if(file&&file.type.startsWith('image/')){
-        if(currentProjectId&&currentUserId){
-          uploadImageToStorage(file,frame.id).then(({path,url})=>{frame.image=url;frame.imagePath=path;renderAll();autoSave();}).catch(()=>{const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);});
-        } else {
-          const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);
-        }
+      // Check for URL drop (video link)
+      const text=e.dataTransfer.getData('text/plain')||e.dataTransfer.getData('text/uri-list');
+      if(text&&text.trim().startsWith('http')&&isVideoUrl(text.trim())){
+        pushSBHistory();
+        frame.videoUrl=text.trim();frame.videoThumb=null;frame.image=null;
+        renderAll();autoSave();
+        showToast('fetching thumbnail…');
+        grabVideoThumbnail(text.trim(),thumb=>{frame.videoThumb=thumb;renderAll();autoSave();showToast(thumb?'video linked':'video linked');});
+        return;
       }
+      const file=e.dataTransfer.files[0];
+      if(file&&file.type.startsWith('image/')){const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);}
     });
 
     const sections=document.createElement('div');sections.className='sections';
@@ -2098,7 +1824,16 @@ function renderFilmstrip(){
   const b=activeBoard();if(!b)return;
   b.frames.forEach((f,i)=>{
     const t=document.createElement('div');t.className='strip-thumb'+(f.id===activeFrameId?' active-thumb':'');
-    if(f.image){const img=document.createElement('img');img.src=f.image;t.appendChild(img);}
+    if(f.videoUrl){
+      if(f.videoThumb){const img=document.createElement('img');img.src=f.videoThumb;t.appendChild(img);}
+      // small play badge
+      const pb=document.createElement('div');
+      pb.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);';
+      pb.innerHTML='<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polygon points="5,3 13,8 5,13" fill="white" opacity=".8"/></svg>';
+      t.appendChild(pb);
+    } else if(f.image){
+      const img=document.createElement('img');img.src=f.image;t.appendChild(img);
+    }
     const num=document.createElement('span');num.className='strip-num';num.textContent=i+1;t.appendChild(num);
     t.addEventListener('click',()=>{setActiveFrame(f.id);const cards=document.querySelectorAll('.frame-card');if(cards[i])cards[i].scrollIntoView({behavior:'smooth',block:'center'});});
     strip.appendChild(t);
@@ -2116,6 +1851,145 @@ function copyLink(){
 function showToast(msg){
   const t=$('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ── VIDEO URL UTILITIES ───────────────────────────────────────────────────
+function isVideoUrl(url){
+  if(!url)return false;
+  // Direct video file extensions
+  if(/\.(mp4|mov|webm|m4v|avi|mkv)(\?|$)/i.test(url))return true;
+  // Dropbox shared links (dl=0 or dl=1) — treat as video if extension present or user pasted it
+  if(/dropbox\.com/i.test(url))return true;
+  // Other streaming-friendly patterns
+  if(/vimeo\.com|youtube\.com|youtu\.be/i.test(url))return true;
+  return false;
+}
+
+function isDropboxUrl(url){
+  return url&&/dropbox\.com/i.test(url);
+}
+
+// Convert Dropbox share link to direct download link for <video>
+function toDirectVideoUrl(url){
+  if(!url)return url;
+  // Dropbox: replace ?dl=0 with ?dl=1, or add ?dl=1
+  if(isDropboxUrl(url)){
+    return url.replace(/\?.*$/,'').replace(/www\.dropbox/,'dl.dropboxusercontent').replace(/\/s\//,'/s/');
+    // Actually the cleanest approach: swap domain and force raw=1
+  }
+  return url;
+}
+
+// For Dropbox: swap to dl.dropboxusercontent.com for direct streaming
+function makeStreamable(url){
+  if(!url)return url;
+  if(isDropboxUrl(url)){
+    // Convert share link to raw content link
+    let u=url;
+    u=u.replace('www.dropbox.com','dl.dropboxusercontent.com');
+    u=u.replace('dl.dropbox.com','dl.dropboxusercontent.com');
+    // Remove query params that interfere, then ensure raw=1
+    u=u.split('?')[0]+'?raw=1';
+    return u;
+  }
+  return url;
+}
+
+// Generate a thumbnail data URL from video URL using a hidden video element
+function grabVideoThumbnail(videoUrl, cb){
+  const url=makeStreamable(videoUrl);
+  const v=document.createElement('video');
+  v.crossOrigin='anonymous';
+  v.style.cssText='position:fixed;left:-9999px;top:-9999px;width:160px;height:90px;';
+  v.muted=true;v.playsInline=true;v.preload='metadata';
+  document.body.appendChild(v);
+  let done=false;
+  function finish(){
+    if(done)return;done=true;
+    try{
+      const c=document.createElement('canvas');c.width=320;c.height=180;
+      const ctx=c.getContext('2d');ctx.drawImage(v,0,0,320,180);
+      const data=c.toDataURL('image/jpeg',0.7);
+      document.body.removeChild(v);
+      cb(data.length>5000?data:null); // if blank/tiny, return null
+    }catch(e){document.body.removeChild(v);cb(null);}
+  }
+  v.addEventListener('loadeddata',()=>{v.currentTime=0.5;});
+  v.addEventListener('seeked',finish,{once:true});
+  v.addEventListener('error',()=>{document.body.removeChild(v);cb(null);});
+  setTimeout(()=>{if(!done){document.body.removeChild(v);done=true;cb(null);}},8000);
+  v.src=url;v.load();
+}
+
+// ── VIDEO PLAYER ──────────────────────────────────────────────────────────
+let vidPlayerFrame=null;
+
+function openVideoPlayer(frame){
+  vidPlayerFrame=frame;
+  const url=makeStreamable(frame.videoUrl);
+  const overlay=$('vid-player-overlay');
+  const vid=$('vid-player-el');
+  vid.src=url;
+  vid.load();
+  vid.play().catch(()=>{});
+
+  // Meta label
+  const b=activeBoard();
+  const idx=b?b.frames.indexOf(frame):-1;
+  $('vid-player-meta').textContent=idx>=0?`frame ${idx+1}${frame.voiceOver?' — '+frame.voiceOver.substring(0,60)+'…':''}` : '';
+
+  // Dropbox button
+  const dbBtn=$('vid-player-dropbox-btn');
+  if(isDropboxUrl(frame.videoUrl)){
+    dbBtn.style.display='';
+    dbBtn.onclick=()=>window.open(frame.videoUrl,'_blank');
+  } else {
+    dbBtn.style.display='none';
+  }
+
+  $('vid-player-open-btn').onclick=()=>window.open(frame.videoUrl,'_blank');
+  overlay.classList.add('open');
+}
+
+function closeVideoPlayer(){
+  const vid=$('vid-player-el');
+  vid.pause();vid.src='';
+  $('vid-player-overlay').classList.remove('open');
+  vidPlayerFrame=null;
+}
+
+function initVideoPlayer(){
+  $('vid-player-close').addEventListener('click',closeVideoPlayer);
+  $('vid-player-dismiss-btn').addEventListener('click',closeVideoPlayer);
+  $('vid-player-overlay').addEventListener('click',e=>{
+    if(e.target===$('vid-player-overlay'))closeVideoPlayer();
+  });
+  document.addEventListener('keydown',e=>{
+    if($('vid-player-overlay').classList.contains('open')&&e.key==='Escape')closeVideoPlayer();
+  });
+}
+
+// Prompt for video URL and attach to frame
+function attachVideoUrl(frame){
+  const existing=frame.videoUrl||'';
+  const url=prompt('paste video URL (Dropbox, direct .mp4, etc.):'+(existing?'\n\ncurrent: '+existing:''),existing||'');
+  if(url===null)return; // cancelled
+  if(!url.trim()){
+    // Clear
+    frame.videoUrl=null;frame.videoThumb=null;
+    renderAll();autoSave();showToast('video removed');
+    return;
+  }
+  const trimmed=url.trim();
+  frame.videoUrl=trimmed;
+  frame.videoThumb=null; // will try to generate
+  renderAll();autoSave();
+  showToast('fetching thumbnail…');
+  grabVideoThumbnail(trimmed,thumb=>{
+    frame.videoThumb=thumb;
+    renderAll();autoSave();
+    showToast(thumb?'video linked':'video linked (no preview available)');
+  });
 }
 
 // ── ANNOTATOR ─────────────────────────────────────────────────────────────
@@ -2208,21 +2082,10 @@ function openAnnotator(frame){
 
 function closeAnnotator(){$('annotator-overlay').classList.remove('open');annFrame=null;}
 
-async function saveAnnotator(){
+function saveAnnotator(){
   if(!annFrame)return;
   const canvas=$('ann-draw');
-  if(currentProjectId&&currentUserId&&canvas){
-    try{
-      showToast('saving…');
-      const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
-      const path=`${currentUserId}/${currentProjectId}/${annFrame.id}/annotation.png`;
-      const{error}=await sb.storage.from('frames-images').upload(path,blob,{upsert:true,contentType:'image/png'});
-      if(!error){annFrame.annLayer=getPublicUrl(path);annFrame.annLayerPath=path;}
-      else{annFrame.annLayer=canvas.toDataURL();}
-    }catch(e){annFrame.annLayer=canvas?canvas.toDataURL():null;}
-  } else {
-    annFrame.annLayer=canvas?canvas.toDataURL():null;
-  }
+  annFrame.annLayer=canvas?canvas.toDataURL():null;
   annFrame.annNotes=$('ann-notes-ta').value;
   annFrame.annPins=JSON.parse(JSON.stringify(annPins));
   closeAnnotator();
@@ -2723,6 +2586,8 @@ function closePresentation(){
   document.removeEventListener('fullscreenchange',onFullscreenChange);
   if(document.fullscreenElement&&document.exitFullscreen)document.exitFullscreen().catch(()=>{});
   else if(document.webkitFullscreenElement&&document.webkitExitFullscreen)document.webkitExitFullscreen();
+  // Also close video player if open
+  if($('vid-player-overlay').classList.contains('open'))closeVideoPlayer();
 }
 
 function presKeyHandler(e){
@@ -2759,10 +2624,34 @@ function renderPresFrame(){
   // Progress bar
   $('pres-progress-bar').style.width=(total>1?presIdx/(total-1)*100:100)+'%';
 
-  // Image
+  // Image / Video
   const imgEl=$('pres-img');const noImg=$('pres-no-img');
-  if(frame.image){imgEl.src=frame.image;imgEl.style.display='block';noImg.style.display='none';}
-  else{imgEl.style.display='none';noImg.style.display='block';}
+  // Remove any existing video element in pres
+  const oldVid=document.getElementById('pres-vid-el');if(oldVid)oldVid.remove();
+  const presPlayBtn=document.getElementById('pres-vid-play-btn');if(presPlayBtn)presPlayBtn.remove();
+
+  if(frame.videoUrl){
+    // Show thumbnail as static image, with a play button to open player
+    imgEl.style.display='none';noImg.style.display='none';
+    if(frame.videoThumb){
+      imgEl.src=frame.videoThumb;imgEl.style.display='block';
+    } else {
+      noImg.textContent='video';noImg.style.display='block';
+    }
+    // Add floating play button
+    const playB=document.createElement('button');
+    playB.id='pres-vid-play-btn';
+    playB.style.cssText='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,0.55);border:2px solid rgba(255,255,255,0.4);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;transition:background .15s,transform .12s;';
+    playB.innerHTML='<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><polygon points="10,7 24,14 10,21" fill="white"/></svg>';
+    playB.addEventListener('click',e=>{e.stopPropagation();openVideoPlayer(frame);});
+    playB.addEventListener('mouseenter',()=>{playB.style.background='rgba(59,130,246,0.7)';playB.style.transform='translate(-50%,-50%) scale(1.08)';});
+    playB.addEventListener('mouseleave',()=>{playB.style.background='rgba(0,0,0,0.55)';playB.style.transform='translate(-50%,-50%)';});
+    $('pres-image').appendChild(playB);
+  } else if(frame.image){
+    imgEl.src=frame.image;imgEl.style.display='block';noImg.style.display='none';
+  } else {
+    imgEl.style.display='none';noImg.textContent='no image';noImg.style.display='block';
+  }
 
   // Text
   $('pres-vo').textContent=frame.voiceOver||'';
@@ -2784,8 +2673,17 @@ function buildPresThumbs(){
   b.frames.forEach((f,i)=>{
     const t=document.createElement('div');
     t.className='pres-thumb'+(i===presIdx?' active':'');
-    if(f.image){const img=document.createElement('img');img.src=f.image;t.appendChild(img);}
-    else{t.classList.add('pres-thumb-empty');t.innerHTML=`<span>${i+1}</span>`;}
+    if(f.videoUrl){
+      if(f.videoThumb){const img=document.createElement('img');img.src=f.videoThumb;t.appendChild(img);}
+      const pb=document.createElement('div');
+      pb.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.25);';
+      pb.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><polygon points="4,2 12,7 4,12" fill="white" opacity=".8"/></svg>';
+      t.appendChild(pb);
+    } else if(f.image){
+      const img=document.createElement('img');img.src=f.image;t.appendChild(img);
+    } else {
+      t.classList.add('pres-thumb-empty');t.innerHTML=`<span>${i+1}</span>`;
+    }
     t.addEventListener('click',()=>{presIdx=i;renderPresFrame();});
     wrap.appendChild(t);
   });
@@ -2835,6 +2733,8 @@ async function exportPDF(){
   finally{btn.textContent='export';btn.disabled=false;}
 }
 
+// hide resize handle initially
+$('resize-handle').style.display='none';
 init();
 </script>
 </body>
