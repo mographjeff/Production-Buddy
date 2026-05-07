@@ -731,6 +731,8 @@ body.light #bs-ctx-menu .menu-item{color:#444;}
 body.light #bs-ctx-menu .menu-item:hover{background:#f5f3ee;color:#111;}
 body.light #bs-ctx-menu .menu-item.danger{color:#dc2626;}
 body.light #bs-ctx-menu .menu-item.danger:hover{background:#fff1f1;}
+#bs-ctx-menu .menu-item.disabled{opacity:0.32;cursor:default;pointer-events:none;}
+body.light #bs-ctx-menu .menu-item.disabled{opacity:0.35;}
 
 @keyframes bsCardIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
 .bs-card{animation:bsCardIn .18s cubic-bezier(.34,1.56,.64,1) both;}
@@ -1545,7 +1547,7 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
     </button>
     <button class="bs-tool-btn" id="bs-zoom-reset" title="reset zoom (Ctrl+0)" style="font-size:10px;padding:0 6px;width:auto;">fit</button>
     <div class="bs-divider"></div>
-    <button class="bs-tool-btn" id="bs-clear-all" title="clear all cards" style="color:#f87171;">
+    <button class="bs-tool-btn" id="bs-clear-all" title="delete selected card — or clear all if nothing selected" style="color:#f87171;">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 2l9 9M11 2L2 11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
     </button>
   </div>
@@ -5069,32 +5071,37 @@ init();
     m.innerHTML='';
     // Tell the cross-panel transfer module which card this is
     if(window.pbRegisterCtxCardId) window.pbRegisterCtxCardId(card.id);
+    // ── standard edit actions ──
     const items=[
+      {label:'copy',icon:'⧉',kbd:'⌘C',fn:()=>copyCard(card)},
+      {label:'paste',icon:'📋',kbd:'⌘V',disabled:!copiedCard,fn:()=>pasteCard(card.x+28,card.y+28)},
+      {label:'duplicate',icon:'⊕',kbd:'⌘D',fn:()=>duplicateCard(card)},
+      {divider:true},
       {label:'change color',icon:'🎨',fn:()=>showColorPopup(cx,cy,card)},
-      {label:'duplicate',icon:'⧉',fn:()=>duplicateCard(card)},
-      {label:'bring to front',icon:'↑',fn:()=>bringToFront(card)},
-      {label:'send to back',icon:'↓',fn:()=>sendToBack(card)},
     ];
-    if(card.type==='image'){
-      items.unshift({label:'replace image',icon:'🖼',fn:()=>replaceCardImage(card)});
-    }
-    if(card.type==='link'){
-      items.unshift({label:'open link',icon:'🔗',fn:()=>window.open(card.url,'_blank')});
-    }
-    items.push({divider:true},{label:'delete card',icon:'✕',danger:true,fn:()=>deleteCard(card.id)});
+    // type-specific
+    if(card.type==='image') items.push({label:'replace image',icon:'🖼',fn:()=>replaceCardImage(card)});
+    if(card.type==='link')  items.push({label:'open link',icon:'🔗',fn:()=>window.open(card.url,'_blank')});
+    // layer order
+    items.push(
+      {label:'bring to front',icon:'↑',fn:()=>bringToFront(card)},
+      {label:'send to back', icon:'↓',fn:()=>sendToBack(card)},
+      {divider:true},
+      {label:'delete',icon:'✕',danger:true,fn:()=>deleteCard(card.id)}
+    );
     items.forEach(item=>{
       if(item.divider){const d=document.createElement('div');d.className='menu-divider';m.appendChild(d);return;}
       const el=document.createElement('div');
-      el.className='menu-item'+(item.danger?' danger':'');
-      el.innerHTML=`<span style="width:16px;text-align:center;font-size:12px;">${item.icon}</span>${item.label}`;
-      el.addEventListener('click',()=>{m.style.display='none';item.fn();});
+      el.className='menu-item'+(item.danger?' danger':'')+(item.disabled?' disabled':'');
+      el.innerHTML=`<span style="width:16px;text-align:center;font-size:12px;flex-shrink:0;">${item.icon}</span><span style="flex:1;">${item.label}</span>${item.kbd?`<span style="font-size:10px;color:#555;margin-left:10px;">${item.kbd}</span>`:''}`;
+      if(!item.disabled) el.addEventListener('click',()=>{m.style.display='none';item.fn();});
       m.appendChild(el);
     });
     // position
     const vw=window.innerWidth,vh=window.innerHeight;
     m.style.display='block';
     let x=cx,y=cy;
-    if(x+180>vw)x=vw-185;
+    if(x+200>vw)x=vw-205;
     if(y+m.offsetHeight>vh)y=vh-m.offsetHeight-5;
     m.style.left=x+'px';m.style.top=y+'px';
   }
@@ -5117,6 +5124,17 @@ init();
   }
   function duplicateCard(card){
     const nc={...JSON.parse(JSON.stringify(card)),id:nextCardId++,x:card.x+24,y:card.y+24};
+    addCard(nc);
+  }
+  let copiedCard=null;
+  function copyCard(card){
+    copiedCard=JSON.parse(JSON.stringify(card));
+    showToast('card copied');
+  }
+  function pasteCard(x,y){
+    if(!copiedCard)return;
+    const p=(x!==undefined&&y!==undefined)?{x,y}:newCardPos();
+    const nc={...JSON.parse(JSON.stringify(copiedCard)),id:nextCardId++,x:p.x,y:p.y};
     addCard(nc);
   }
   function bringToFront(card){
@@ -5363,9 +5381,21 @@ init();
           deleteCard(selectedCardId);
         }
       }
-      if(e.key==='v'||e.key==='V'){setActiveTool('select');}
-      if(e.key==='h'||e.key==='H'){setActiveTool('hand');}
-      if(e.key==='s'||e.key==='S'){
+      // Cmd/Ctrl+C → copy selected card
+      if((e.metaKey||e.ctrlKey)&&e.key==='c'){
+        if(selectedCardId!==null){const card=bsGetCard(selectedCardId);if(card){copyCard(card);e.preventDefault();}}
+      }
+      // Cmd/Ctrl+V → paste copied card
+      if((e.metaKey||e.ctrlKey)&&e.key==='v'){
+        if(copiedCard){pasteCard();e.preventDefault();}
+      }
+      // Cmd/Ctrl+D → duplicate selected card
+      if((e.metaKey||e.ctrlKey)&&e.key==='d'){
+        if(selectedCardId!==null){const card=bsGetCard(selectedCardId);if(card){e.preventDefault();duplicateCard(card);}}
+      }
+      if(!e.metaKey&&!e.ctrlKey&&(e.key==='v'||e.key==='V')){setActiveTool('select');}
+      if(!e.metaKey&&!e.ctrlKey&&(e.key==='h'||e.key==='H')){setActiveTool('hand');}
+      if(!e.metaKey&&!e.ctrlKey&&(e.key==='s'||e.key==='S')){
         snapEnabled=!snapEnabled;
         const snapBtn=document.getElementById('bs-snap-toggle');
         if(snapBtn)snapBtn.classList.toggle('snap-on',snapEnabled);
@@ -5505,6 +5535,8 @@ init();
 
     // Clear all
     document.getElementById('bs-clear-all').addEventListener('click',()=>{
+      if(selectedCardId!==null){deleteCard(selectedCardId);return;}
+      if(selectedCardIds.size>0){[...selectedCardIds].forEach(id=>deleteCard(id));selectedCardIds.clear();return;}
       if(!bsCards.length)return;
       if(confirm('Clear all brainstorm cards?')){bsCards=[];world.innerHTML='';const m=document.getElementById('bs-marquee');if(m)world.appendChild(m);bsSave();}
     });
