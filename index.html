@@ -704,6 +704,22 @@ body.light .bs-text-size-btn:hover{background:rgba(0,0,0,0.08);color:#444;}
 .bs-card:hover .bs-resize-handle,.bs-card.selected .bs-resize-handle{opacity:0.5;}
 .bs-resize-handle:hover{opacity:1!important;}
 
+/* PALETTE CARD */
+.bs-palette-grid{padding:4px 8px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1;min-height:0;}
+.bs-palette-swatch-row{display:flex;align-items:center;gap:8px;padding:4px 5px;border-radius:6px;cursor:default;}
+.bs-palette-swatch-row:hover{background:rgba(255,255,255,0.05);}
+body.light .bs-palette-swatch-row:hover{background:rgba(0,0,0,0.04);}
+.bs-palette-chip{width:34px;height:34px;border-radius:5px;flex-shrink:0;border:1px solid rgba(255,255,255,0.14);}
+body.light .bs-palette-chip{border-color:rgba(0,0,0,0.1);}
+.bs-palette-info{flex:1;min-width:0;}
+.bs-palette-name{font-size:11px;font-weight:500;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3;}
+body.light .bs-palette-name{color:#222;}
+.bs-palette-vals{font-size:9.5px;color:#555;font-family:'SF Mono',monospace;line-height:1.6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.light .bs-palette-vals{color:#999;}
+.bs-palette-hex{color:#888;font-weight:600;}
+body.light .bs-palette-hex{color:#666;}
+.bs-palette-spot-badge{display:inline-block;font-size:8px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.15);border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:middle;letter-spacing:.03em;text-transform:uppercase;}
+
 /* CONTEXT MENU */
 #bs-ctx-menu .menu-item{padding:7px 10px;font-size:12px;color:#ccc;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:9px;}
 #bs-ctx-menu .menu-item:hover{background:#2e2e2e;color:#eee;}
@@ -1518,7 +1534,7 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
       <span class="bs-btn-label">section</span>
     </button>
     <div class="bs-divider"></div>
-    <input type="file" id="bs-file-input" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.mp4,.mov,.mp3,.wav,.aif,.aiff,.zip,.ai,.psd,.fig,.sketch,.svg,.gif,.webp,.heic,.heif" style="display:none" multiple/>
+    <input type="file" id="bs-file-input" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.mp4,.mov,.mp3,.wav,.aif,.aiff,.zip,.ai,.psd,.fig,.sketch,.svg,.gif,.webp,.heic,.heif,.ase" style="display:none" multiple/>
     <div class="bs-spacer"></div>
     <span id="bs-zoom-label" style="font-size:10px;color:#555;min-width:36px;text-align:right;">100%</span>
     <button class="bs-tool-btn" id="bs-zoom-out" title="zoom out">
@@ -4620,13 +4636,13 @@ init();
       if(!card.cardBg)el.style.borderColor=barColor;
     }
   }
-  function defaultW(type){return{text:220,image:240,link:240,file:200,section:280,audio:220,video:280}[type]||200;}
-  function defaultH(type){return{text:120,image:180,link:200,file:72,section:70,audio:110,video:190}[type]||120;}
+  function defaultW(type){return{text:220,image:240,link:240,file:200,section:280,audio:220,video:280,palette:240}[type]||200;}
+  function defaultH(type){return{text:120,image:180,link:200,file:72,section:70,audio:110,video:190,palette:300}[type]||120;}
 
   function buildCardHTML(card){
     const dragIcon=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="3" cy="3" r="1" fill="currentColor"/><circle cx="7" cy="3" r="1" fill="currentColor"/><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>`;
     const resizeIcon=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.2"/><line x1="9" y1="5" x2="5" y2="9" stroke="currentColor" stroke-width="1.2"/></svg>`;
-    const typeIcons={text:'T',image:'⬜',link:'🔗',file:'📄',section:'▬'};
+    const typeIcons={text:'T',image:'⬜',link:'🔗',file:'📄',section:'▬',palette:'🎨'};
     const header=`<div class="bs-card-header">
       <span class="bs-card-type-icon">${typeIcons[card.type]||''}</span>
       <input class="bs-card-title-edit" value="${esc(card.title||'')}" placeholder="${card.type} card"/>
@@ -4675,6 +4691,24 @@ init();
         </div>
         <div class="bs-file-name-bar" title="${esc(card.filename||'')}">${esc(card.filename||'untitled')}</div>
       </div>`+resize;
+    }
+    if(card.type==='palette'){
+      const swatches=card.swatches||[];
+      const rows=swatches.map(s=>{
+        const spot=s.spot?`<span class="bs-palette-spot-badge">spot</span>`:'';
+        const hexVal=`<span class="bs-palette-hex">${s.hex}</span>`;
+        const rgbVal=s.rgb?` · RGB ${s.rgb[0]} ${s.rgb[1]} ${s.rgb[2]}`:'';
+        const cmykVal=s.cmyk?` · CMYK ${s.cmyk[0]} ${s.cmyk[1]} ${s.cmyk[2]} ${s.cmyk[3]}`:'';
+        return `<div class="bs-palette-swatch-row">
+          <div class="bs-palette-chip" style="background:${s.hex};"></div>
+          <div class="bs-palette-info">
+            <div class="bs-palette-name">${esc(s.name||'—')}${spot}</div>
+            <div class="bs-palette-vals">${hexVal}${rgbVal}${cmykVal}</div>
+          </div>
+        </div>`;
+      }).join('');
+      const empty=`<div style="font-size:11px;color:#444;padding:8px;">no colors found</div>`;
+      return header+`<div class="bs-palette-grid">${rows||empty}</div>`+resize;
     }
     if(card.type==='section'){
       const grip=`<span class="bs-section-grip"><span></span><span></span><span></span><span></span><span></span><span></span></span>`;
@@ -4737,6 +4771,78 @@ init();
 
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function hexToRgba(hex,alpha){if(!hex||!hex.startsWith("#"))return "rgba(255,255,255,"+alpha+")";var h=hex.replace("#","");var r=parseInt(h.substring(0,2),16);var g=parseInt(h.substring(2,4),16);var b=parseInt(h.substring(4,6),16);return "rgba("+r+","+g+","+b+","+alpha+")";}
+
+  // ── ASE PARSER ────────────────────────────────────────────────
+  function parseASE(buffer){
+    try{
+      const view=new DataView(buffer);
+      const sig=String.fromCharCode(view.getUint8(0),view.getUint8(1),view.getUint8(2),view.getUint8(3));
+      if(sig!=='ASEF')return null;
+      const numBlocks=view.getUint32(8,false);
+      const swatches=[];
+      let offset=12;
+      for(let i=0;i<numBlocks&&offset+6<=buffer.byteLength;i++){
+        const blockType=view.getUint16(offset,false);
+        const blockLen=view.getUint32(offset+2,false);
+        offset+=6;
+        if(blockType===0x0001&&blockLen>0){
+          let p=offset;
+          const nameLen=view.getUint16(p,false); p+=2;
+          let name='';
+          for(let j=0;j<nameLen-1&&p+j*2+1<buffer.byteLength;j++){name+=String.fromCharCode(view.getUint16(p+j*2,false));}
+          p+=nameLen*2;
+          if(p+4>buffer.byteLength){offset+=blockLen;continue;}
+          const model=String.fromCharCode(view.getUint8(p),view.getUint8(p+1),view.getUint8(p+2),view.getUint8(p+3));
+          p+=4;
+          const colorTypeCode=()=>{const end=offset+blockLen;return end-2>=0?view.getUint16(end-2,false):0;};
+          const spot=colorTypeCode()===1;
+          let sw={name:name.trim(),hex:'#808080',spot};
+          if(model==='RGB '){
+            const r=Math.min(255,Math.max(0,Math.round(view.getFloat32(p,false)*255)));
+            const g=Math.min(255,Math.max(0,Math.round(view.getFloat32(p+4,false)*255)));
+            const b=Math.min(255,Math.max(0,Math.round(view.getFloat32(p+8,false)*255)));
+            sw.rgb=[r,g,b];
+            sw.hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+          }else if(model==='CMYK'){
+            const c=Math.min(100,Math.max(0,Math.round(view.getFloat32(p,false)*100)));
+            const m=Math.min(100,Math.max(0,Math.round(view.getFloat32(p+4,false)*100)));
+            const y=Math.min(100,Math.max(0,Math.round(view.getFloat32(p+8,false)*100)));
+            const k=Math.min(100,Math.max(0,Math.round(view.getFloat32(p+12,false)*100)));
+            sw.cmyk=[c,m,y,k];
+            const r=Math.round(255*(1-c/100)*(1-k/100));
+            const g=Math.round(255*(1-m/100)*(1-k/100));
+            const b=Math.round(255*(1-y/100)*(1-k/100));
+            sw.rgb=[r,g,b];
+            sw.hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+          }else if(model==='Gray'){
+            const gray=Math.min(255,Math.max(0,Math.round(view.getFloat32(p,false)*255)));
+            sw.rgb=[gray,gray,gray];
+            sw.hex='#'+[gray,gray,gray].map(v=>v.toString(16).padStart(2,'0')).join('');
+          }
+          if(sw.name)swatches.push(sw);
+        }
+        offset+=blockLen;
+      }
+      return swatches;
+    }catch(e){return null;}
+  }
+  function loadASEToCard(card,file){
+    const r=new FileReader();
+    r.onload=ev=>{
+      const swatches=parseASE(ev.target.result);
+      if(!swatches||swatches.length===0){showToast('No colors found in .ase file');return;}
+      card.swatches=swatches;
+      card.h=Math.min(600,Math.max(200,swatches.length*46+44));
+      const el=document.getElementById('bsc-'+card.id);
+      if(el){
+        el.style.height=card.h+'px';
+        el.innerHTML=buildCardHTML(card);
+        attachCardEvents(el,card);
+      }
+      bsSave();
+    };
+    r.readAsArrayBuffer(file);
+  }
 
   // ── CARD EVENTS ────────────────────────────────────────────────
   function attachCardEvents(el,card){
@@ -5168,11 +5274,16 @@ init();
         const IMG_EXTS=/\.(gif|png|jpe?g|webp|svg|heic|heif|bmp|tiff?)$/i;
         const AUDIO_EXTS=/\.(mp3|wav|aif|aiff|ogg|m4a|flac|aac)$/i;
         const VIDEO_EXTS=/\.(mp4|mov|webm|m4v|avi)$/i;
+        const ASE_EXT=/\.ase$/i;
         Array.from(e.dataTransfer.files).forEach((file,i)=>{
           const isImg=file.type.startsWith('image/')||IMG_EXTS.test(file.name);
           const isAudio=file.type.startsWith('audio/')||AUDIO_EXTS.test(file.name);
           const isVideo=file.type.startsWith('video/')||VIDEO_EXTS.test(file.name);
-          if(isImg){
+          const isASE=ASE_EXT.test(file.name);
+          if(isASE){
+            const card={id:nextCardId++,type:'palette',title:file.name.replace(/\.ase$/i,''),swatches:[],x:wpt.x+i*28,y:wpt.y+i*28,w:260,h:300};
+            bsCards.push(card);renderCard(card);loadASEToCard(card,file);
+          }else if(isImg){
             const card={id:nextCardId++,type:'image',title:file.name,image:null,x:wpt.x+i*28,y:wpt.y+i*28,w:240,h:190};
             bsCards.push(card);renderCard(card);loadImageFileToCard(card,file);
           }else if(isAudio){
@@ -5245,7 +5356,12 @@ init();
         wrap.style.cursor='grab';
       }
       if(e.key==='Delete'||e.key==='Backspace'){
-        if(selectedCardId!==null){deleteCard(selectedCardId);}
+        if(selectedCardIds.size>0){
+          [...selectedCardIds].forEach(id=>deleteCard(id));
+          selectedCardIds.clear();
+        } else if(selectedCardId!==null){
+          deleteCard(selectedCardId);
+        }
       }
       if(e.key==='v'||e.key==='V'){setActiveTool('select');}
       if(e.key==='h'||e.key==='H'){setActiveTool('hand');}
@@ -5333,6 +5449,7 @@ init();
     const IMAGE_EXTS=/\.(gif|png|jpe?g|webp|svg|heic|heif|bmp|tiff?)$/i;
     const AUDIO_EXTS=/\.(mp3|wav|aif|aiff|ogg|m4a|flac|aac)$/i;
     const VIDEO_EXTS=/\.(mp4|mov|webm|m4v|avi)$/i;
+    const ASE_EXT=/\.ase$/i;
 
     document.getElementById('bs-add-upload').addEventListener('click',()=>{
       document.getElementById('bs-file-input').click();
@@ -5342,8 +5459,12 @@ init();
         const isImg=file.type.startsWith('image/')||IMAGE_EXTS.test(file.name);
         const isAudio=file.type.startsWith('audio/')||AUDIO_EXTS.test(file.name);
         const isVideo=file.type.startsWith('video/')||VIDEO_EXTS.test(file.name);
+        const isASE=ASE_EXT.test(file.name);
         const p=newCardPos();
-        if(isImg){
+        if(isASE){
+          const card={id:nextCardId++,type:'palette',title:file.name.replace(/\.ase$/i,''),swatches:[],x:p.x+i*28,y:p.y+i*28,w:260,h:300};
+          bsCards.push(card);renderCard(card);loadASEToCard(card,file);
+        }else if(isImg){
           const card={id:nextCardId++,type:'image',title:file.name,image:null,x:p.x+i*28,y:p.y+i*28,w:240,h:190};
           bsCards.push(card);renderCard(card);loadImageFileToCard(card,file);
         }else if(isAudio){
