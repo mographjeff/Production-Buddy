@@ -5118,7 +5118,14 @@ init();
     const bg=SECTION_COLORS[sectionColorIdx%SECTION_COLORS.length];
     const border=SECTION_BORDERS[sectionColorIdx%SECTION_BORDERS.length];
     sectionColorIdx++;
-    addCard({id:nextCardId++,type:'section',title:'Section',x:p.x,y:p.y,w:300,h:80,sectionBg:bg,sectionBorder:border});
+    const card={id:nextCardId++,type:'section',title:'Section',x:p.x,y:p.y,w:300,h:80,sectionBg:bg,sectionBorder:border};
+    bsCards.unshift(card);
+    window._pbBsCards=bsCards;
+    renderCard(card);
+    const el=document.getElementById('bsc-'+card.id);
+    if(el) world.insertBefore(el,world.firstChild);
+    selectCard(card.id);
+    bsSave();
   }
   function addLinkCardFromURL(url,title){
     const p=newCardPos();
