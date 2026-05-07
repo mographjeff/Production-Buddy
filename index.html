@@ -2550,6 +2550,7 @@ function syncToBoard(){
   const b=activeBoard();if(!b)return;
   b.meta={client:$('meta-client').value,project:$('meta-project').value,job:$('meta-job').value,version:$('meta-version').value};
   b.scriptHtml=getCleanScriptHtml();
+  if(window.bsSyncToBoard)window.bsSyncToBoard();
 }
 function updateMetabarDisplay(){
   const b=activeBoard();if(!b)return;
@@ -2575,6 +2576,8 @@ function loadFromBoard(){
   document.body.classList.toggle('board-archived',!!b.archived);
   // refresh deliverables if visible
   if(typeof dlRefresh==='function')dlRefresh();
+  // refresh brainstorm for this project
+  if(window.bsLoadFromBoard)window.bsLoadFromBoard();
 }
 function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFrameId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
 function autoSave(){
@@ -4531,18 +4534,43 @@ init();
 
   // ── LOAD / SAVE ────────────────────────────────────────────────
   function bsLoad(){
-    try{
-      const raw=localStorage.getItem(BS_KEY);
-      if(raw){const d=JSON.parse(raw);bsCards=d.cards||[];nextCardId=d.nextCardId||1;viewX=d.viewX||0;viewY=d.viewY||0;viewZoom=d.viewZoom||1;snapEnabled=!!d.snapEnabled;sectionColorIdx=d.sectionColorIdx||0;}
-    }catch(e){}
-    window._pbBsCards=bsCards; // keep global bridge in sync after reassign
+    const b=activeBoard();
+    if(b&&b.brainstorm){
+      const d=b.brainstorm;
+      bsCards=d.cards||[];nextCardId=d.nextCardId||1;viewX=d.viewX||0;viewY=d.viewY||0;viewZoom=d.viewZoom||1;snapEnabled=!!d.snapEnabled;sectionColorIdx=d.sectionColorIdx||0;
+    } else {
+      // one-time migration: pull old global brainstorm into the first project
+      try{const raw=localStorage.getItem(BS_KEY);if(raw){const d=JSON.parse(raw);bsCards=d.cards||[];nextCardId=d.nextCardId||1;viewX=d.viewX||0;viewY=d.viewY||0;viewZoom=d.viewZoom||1;snapEnabled=!!d.snapEnabled;sectionColorIdx=d.sectionColorIdx||0;}}catch(e){}
+    }
+    window._pbBsCards=bsCards;
   }
   function bsSave(){
     clearTimeout(autoSaveTimer);
     autoSaveTimer=setTimeout(()=>{
-      try{localStorage.setItem(BS_KEY,JSON.stringify({cards:bsCards,nextCardId,viewX,viewY,viewZoom,snapEnabled,sectionColorIdx}));}catch(e){}
+      bsSyncToBoard();
+      if(typeof autoSave==='function')autoSave();
     },600);
   }
+  function bsSyncToBoard(){
+    const b=activeBoard();if(!b)return;
+    b.brainstorm={cards:bsCards,nextCardId,viewX,viewY,viewZoom,snapEnabled,sectionColorIdx};
+  }
+  function bsLoadFromBoard(){
+    const b=activeBoard();if(!b)return;
+    const d=b.brainstorm||{};
+    bsCards=d.cards||[];nextCardId=d.nextCardId||1;
+    viewX=d.viewX||0;viewY=d.viewY||0;viewZoom=d.viewZoom||1;
+    snapEnabled=!!d.snapEnabled;sectionColorIdx=d.sectionColorIdx||0;
+    window._pbBsCards=bsCards;
+    clearTimeout(autoSaveTimer);
+    renderAllCards();
+    applyTransform();
+    const snapBtn=document.getElementById('bs-snap-toggle');
+    if(snapBtn)snapBtn.classList.toggle('snap-on',snapEnabled);
+    selectedCardId=null;selectedCardIds.clear();
+  }
+  window.bsLoadFromBoard=bsLoadFromBoard;
+  window.bsSyncToBoard=bsSyncToBoard;
   function bsGetCard(id){return bsCards.find(c=>c.id===id);}
 
   // ── GLOBAL BRIDGES for cross-panel transfer ────────────────────
@@ -4962,12 +4990,6 @@ init();
     if(rh){
       rh.addEventListener('pointerdown',e=>{e.stopPropagation();startCardResize(e,card,el);});
     }
-    // Right-click context menu
-    el.addEventListener('contextmenu',e=>{
-      e.preventDefault();e.stopPropagation();
-      selectCard(card.id);
-      showCtxMenu(e.clientX,e.clientY,card);
-    });
   }
 
   function selectCard(id){
@@ -5361,8 +5383,16 @@ init();
         selectCard(null);
       }
     });
-    // Suppress browser context menu on canvas so right-click+drag works cleanly
-    wrap.addEventListener('contextmenu',e=>{e.preventDefault();});
+    // Right-click: suppress browser menu; show card context menu via event delegation
+    wrap.addEventListener('contextmenu',e=>{
+      e.preventDefault();
+      const cardEl=e.target.closest('.bs-card');
+      if(cardEl){
+        const id=parseInt(cardEl.id.replace('bsc-',''));
+        const card=bsGetCard(id);
+        if(card){selectCard(card.id);showCtxMenu(e.clientX,e.clientY,card);}
+      }
+    });
 
     // Space key → hand temporarily
     document.addEventListener('keydown',e=>{
