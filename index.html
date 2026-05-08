@@ -3037,7 +3037,12 @@ function init(){
   applyFontSize(currentFontSize);
   $('script-docx-btn').addEventListener('click',()=>$('script-docx-input').click());
   $('script-docx-input').addEventListener('change',handleDocxImport);
-  $('script-clear-btn').addEventListener('click',()=>{$('script-editor').innerHTML='';const b=activeBoard();if(b)b.scriptHtml='';autoSave();showToast('script cleared');});
+  $('script-clear-btn').addEventListener('click',()=>{
+    $('script-editor').innerHTML='';
+    const b=activeBoard();if(b)b.scriptHtml='';
+    const spEd=document.getElementById('sp-editor');if(spEd)spEd.innerHTML='';
+    autoSave();showToast('script cleared');
+  });
   $('script-file-input').addEventListener('change',handlePDFImport);
   $('tab-add-btn').addEventListener('click',addBoard);
   $('img-picker-cancel').addEventListener('click',closeImgPicker);
@@ -3252,6 +3257,9 @@ async function handleDocxImport(e){
     const editor=$('script-editor');
     editor.innerHTML=result.value||'<p>(empty document)</p>';
     const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+    // keep script tab editor in sync
+    const spEd=document.getElementById('sp-editor');
+    if(spEd)spEd.innerHTML=editor.innerHTML;
     initTableColumnResize();
     autoSave();
 
@@ -3486,6 +3494,9 @@ async function handlePDFImport(e){
     }
 
     const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+    // keep script tab editor in sync
+    const spEd2=document.getElementById('sp-editor');
+    if(spEd2)spEd2.innerHTML=editor.innerHTML;
     autoSave();
     showToast(`pdf imported — ${pdf.numPages} page(s)`);
   }catch(err){
@@ -6421,6 +6432,8 @@ would you like to auto-create storyboard frames — one per paragraph?`;
         editor.appendChild(img);
       }
       const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+      // keep storyboard script editor in sync
+      const sbEd=spEl('script-editor');if(sbEd)sbEd.innerHTML=editor.innerHTML;
       spUpdateWordCount();autoSave();
       showToast(`pdf imported (${pdf.numPages} page${pdf.numPages===1?'':'s'})`);
     }catch(err){showToast('pdf import failed');console.error(err);}
