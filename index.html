@@ -501,6 +501,17 @@ body.light .img-hint{color:#ccc;}
 .img-clear-btn{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.7);color:#ccc;border:none;cursor:pointer;font-size:10px;display:none;align-items:center;justify-content:center;z-index:3;}
 .frame-img:hover .img-clear-btn{display:flex;}
 .img-clear-btn:hover{background:rgba(220,38,38,0.85);color:#fff;}
+.frame-video-el{width:100%;height:100%;object-fit:contain;display:block;background:#000;}
+.frame-video-unavail{display:flex;flex-direction:column;align-items:center;gap:6px;color:#444;font-size:11px;pointer-events:none;}
+.frame-video-unavail svg{opacity:.4;}
+.frame-video-unavail .vna-name{font-size:10px;color:#3a3a3a;max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.light .frame-video-unavail{color:#bbb;}
+body.light .frame-video-unavail .vna-name{color:#ccc;}
+.frame-img-type-btns{position:absolute;bottom:6px;left:6px;display:flex;gap:4px;opacity:0;transition:opacity .15s;z-index:4;}
+.frame-img:hover .frame-img-type-btns{opacity:1;}
+.frame-type-btn{font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.6);color:#aaa;cursor:pointer;}
+.frame-type-btn:hover{background:rgba(59,130,246,0.7);color:#fff;border-color:transparent;}
+.frame-type-btn.active{background:rgba(59,130,246,0.5);color:#fff;border-color:transparent;}
 
 .sections{padding:6px 8px 8px;}
 .section-row{display:flex;align-items:flex-start;gap:4px;border-radius:5px;padding:1px 0;}
@@ -2507,11 +2518,13 @@ let activeFrameId=null;
 let currentFontSize=12;
 let sbHistory=[];   // storyboard undo stack
 let sbRedo=[];      // storyboard redo stack
+// video blob URLs keyed by frame.id — session-only, not persisted
+const sessionVideoURLs=new Map();
 
 function activeBoard(){return boards.find(b=>b.id===activeBoardId);}
 
 function makeFrame(vo='',action=''){
-  const f={id:nextFrameId++,image:null};
+  const f={id:nextFrameId++,image:null,videoName:null};
   ALL_FIELDS.forEach(fd=>f[fd.key]='');
   f.voiceOver=vo; f.action=action;
   return f;
@@ -2571,6 +2584,9 @@ function updateMetabarDisplay(){
 }
 function loadFromBoard(){
   const b=activeBoard();if(!b)return;
+  // revoke all session video URLs from the previous board
+  sessionVideoURLs.forEach(url=>URL.revokeObjectURL(url));
+  sessionVideoURLs.clear();
   $('meta-client').value=b.meta?.client||'';
   $('meta-project').value=b.meta?.project||'';
   $('meta-job').value=b.meta?.job||'';
@@ -3653,10 +3669,12 @@ function openFrameMenu(btn,frameId,frameIdx){
   let menu=wrap.querySelector('.frame-menu');
   if(!menu){menu=document.createElement('div');menu.className='frame-menu';wrap.appendChild(menu);}
   const b=activeBoard();const frame=b.frames.find(f=>f.id===frameId);
+  const hasMedia=!!(frame.image||frame.videoName);
+  const hasImg=!!frame.image;
   menu.innerHTML=`
     <div class="menu-item" data-action="dup"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="9" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M4 3V2a1 1 0 011-1h7a1 1 0 011 1v9a1 1 0 01-1 1h-1" stroke="currentColor" stroke-width="1.2"/></svg>duplicate frame</div>
-    <div class="menu-item" data-action="copyimg"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 10l3-4 2.5 3 1.5-2L11 10" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><circle cx="5" cy="5" r="1" fill="currentColor"/></svg>copy image from frame</div>
-    <div class="menu-item" data-action="clearimg" ${!frame.image?'style="opacity:.35;pointer-events:none;"':''}><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>clear image</div>
+    <div class="menu-item" data-action="copyimg" ${!hasImg?'style="opacity:.35;pointer-events:none;"':''}><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M3 10l3-4 2.5 3 1.5-2L11 10" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><circle cx="5" cy="5" r="1" fill="currentColor"/></svg>copy image from frame</div>
+    <div class="menu-item" data-action="clearmedia" ${!hasMedia?'style="opacity:.35;pointer-events:none;"':''}><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>clear media</div>
     <div class="menu-divider"></div>
     <div class="menu-item danger" data-action="del"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M1 3h12M5 3V2h4v1M3 3l1 9h6l1-9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>delete frame</div>`;
   menu.querySelectorAll('.menu-item').forEach(item=>{
@@ -3664,11 +3682,18 @@ function openFrameMenu(btn,frameId,frameIdx){
       e.stopPropagation();menu.classList.remove('open');const action=item.dataset.action;
       if(action==='dup'){
         pushSBHistory();
-        const copy={...frame,id:nextFrameId++,image:frame.image};
+        // copy image but not video object URL (session only); copy videoName so stale state shows
+        const copy={...frame,id:nextFrameId++,image:frame.image,videoName:frame.videoName||null,annLayer:frame.annLayer||null};
         ALL_FIELDS.forEach(fd=>copy[fd.key]=frame[fd.key]);
         b.frames.splice(frameIdx+1,0,copy);renderAll();autoSave();
       }else if(action==='copyimg'){openImgPicker(frameId);}
-      else if(action==='clearimg'){pushSBHistory();frame.image=null;frame.annLayer=null;renderAll();autoSave();}
+      else if(action==='clearmedia'){
+        pushSBHistory();
+        const url=sessionVideoURLs.get(frame.id);if(url)URL.revokeObjectURL(url);
+        sessionVideoURLs.delete(frame.id);
+        frame.image=null;frame.annLayer=null;frame.annPins=[];frame.videoName=null;
+        renderAll();autoSave();
+      }
       else if(action==='del'){if(b.frames.length>1){pushSBHistory();b.frames.splice(frameIdx,1);renderAll();autoSave();}}
     });
   });
@@ -3738,9 +3763,44 @@ function renderBoard(){
     card.addEventListener('click',()=>setActiveFrame(frame.id));
 
     const imgArea=document.createElement('div');imgArea.className='frame-img';
-    if(frame.image){
+
+    const hasVideo=frame.videoName&&sessionVideoURLs.has(frame.id);
+    const videoStale=frame.videoName&&!sessionVideoURLs.has(frame.id);
+
+    if(hasVideo){
+      // ── VIDEO PLAYER ──
+      const vid=document.createElement('video');
+      vid.className='frame-video-el';
+      vid.src=sessionVideoURLs.get(frame.id);
+      vid.controls=true;
+      vid.preload='metadata';
+      vid.addEventListener('click',e=>e.stopPropagation());
+      vid.addEventListener('pointerdown',e=>e.stopPropagation());
+      imgArea.appendChild(vid);
+      imgArea.style.cursor='default';
+      const clr=document.createElement('button');clr.className='img-clear-btn';clr.innerHTML='✕';
+      clr.title='remove video';
+      clr.addEventListener('click',e=>{
+        e.stopPropagation();
+        const url=sessionVideoURLs.get(frame.id);
+        if(url)URL.revokeObjectURL(url);
+        sessionVideoURLs.delete(frame.id);
+        frame.videoName=null;
+        renderAll();autoSave();
+      });
+      imgArea.appendChild(clr);
+    } else if(videoStale){
+      // ── VIDEO NAME KNOWN BUT URL GONE (page reload) ──
+      const unavail=document.createElement('div');unavail.className='frame-video-unavail';
+      unavail.innerHTML=`<svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="1" y="4" width="26" height="20" rx="3" stroke="currentColor" stroke-width="1.4" opacity=".5"/><polygon points="11,10 11,18 19,14" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" fill="none" opacity=".6"/></svg><span style="font-size:10px;color:#555;">click to reload</span><span class="vna-name">${frame.videoName}</span>`;
+      imgArea.appendChild(unavail);
+      const clr=document.createElement('button');clr.className='img-clear-btn';clr.innerHTML='✕';
+      clr.title='remove video';
+      clr.addEventListener('click',e=>{e.stopPropagation();frame.videoName=null;renderAll();autoSave();});
+      imgArea.appendChild(clr);
+    } else if(frame.image){
+      // ── IMAGE ──
       const img=document.createElement('img');img.src=frame.image;imgArea.appendChild(img);
-      // show annotation layer overlay if exists
       if(frame.annLayer){
         const annImg=document.createElement('img');
         annImg.src=frame.annLayer;
@@ -3750,45 +3810,85 @@ function renderBoard(){
       const clr=document.createElement('button');clr.className='img-clear-btn';clr.innerHTML='✕';
       clr.addEventListener('click',e=>{e.stopPropagation();frame.image=null;frame.annLayer=null;frame.annPins=[];renderAll();autoSave();});
       imgArea.appendChild(clr);
-      // Double-click opens annotator
       imgArea.addEventListener('dblclick',e=>{e.stopPropagation();openAnnotator(frame);});
-      // hint overlay on hover
       const hint=document.createElement('div');
       hint.style.cssText='position:absolute;bottom:6px;right:6px;font-size:9px;color:rgba(255,255,255,0.6);background:rgba(0,0,0,0.45);padding:2px 6px;border-radius:4px;pointer-events:none;opacity:0;transition:opacity .15s;';
       hint.textContent='double-click to annotate';
       imgArea.appendChild(hint);
       imgArea.addEventListener('mouseenter',()=>hint.style.opacity='1');
       imgArea.addEventListener('mouseleave',()=>hint.style.opacity='0');
-    }else{
-      const hint=document.createElement('div');
-      hint.className='img-hint';
-      hint.style.cursor='pointer';
-      hint.innerHTML=`<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><rect x="1" y="1" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M5 16l5-6 3.5 4 2.5-3L18 16" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg><span>click to add image</span>`;
+    } else {
+      // ── EMPTY — show hint with image + video options ──
+      const hint=document.createElement('div');hint.className='img-hint';hint.style.cursor='pointer';
+      hint.innerHTML=`<svg width="20" height="20" viewBox="0 0 22 22" fill="none"><rect x="1" y="1" width="20" height="20" rx="3" stroke="currentColor" stroke-width="1.2"/><path d="M5 16l5-6 3.5 4 2.5-3L18 16" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg><span>click to add image or video</span>`;
       imgArea.appendChild(hint);
     }
+
+    // Hidden file inputs — image and video
     const fi=document.createElement('input');fi.type='file';fi.accept='image/*';
-    fi.style.cssText='display:none;';
+    fi.style.cssText='position:absolute;width:0;height:0;opacity:0;overflow:hidden;';
     fi.addEventListener('change',e=>{
-      const file=e.target.files[0];if(!file)return;
-      const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);
+      const file=e.target.files[0];if(!file)return;fi.value='';
+      const r=new FileReader();
+      r.onload=ev=>{frame.image=ev.target.result;frame.videoName=null;const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);sessionVideoURLs.delete(frame.id);renderAll();autoSave();};
+      r.readAsDataURL(file);
     });
     imgArea.appendChild(fi);
 
-    // Single click on empty image area → upload; double-click on image → annotator
+    const fv=document.createElement('input');fv.type='file';fv.accept='.mp4,.mov,.webm,video/*';
+    fv.style.cssText='position:absolute;width:0;height:0;opacity:0;overflow:hidden;';
+    fv.addEventListener('change',e=>{
+      const file=e.target.files[0];if(!file)return;fv.value='';
+      const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
+      sessionVideoURLs.set(frame.id,URL.createObjectURL(file));
+      frame.videoName=file.name;frame.image=null;frame.annLayer=null;
+      renderAll();autoSave();
+    });
+    imgArea.appendChild(fv);
+
+    // Click on empty or stale-video area → open image picker; hold Alt → video
     imgArea.addEventListener('click',e=>{
-      if(frame.image)return;
-      fi.click();
+      if(hasVideo)return; // video controls handle their own clicks
+      e.stopPropagation();
+      if(videoStale||(!frame.image&&!frame.videoName)){
+        // default: image; if clicking the video type-btn it handles itself
+        fi.click();
+      }
     });
     imgArea.addEventListener('dblclick',e=>{
       e.stopPropagation();
-      if(frame.image) openAnnotator(frame);
+      if(frame.image&&!hasVideo) openAnnotator(frame);
     });
+
+    // Image/Video type toggle buttons (show on hover when empty or to switch)
+    if(!hasVideo){
+      const typeBtns=document.createElement('div');typeBtns.className='frame-img-type-btns';
+      const imgBtn=document.createElement('button');imgBtn.className='frame-type-btn'+(frame.image?' active':'');imgBtn.textContent='img';
+      imgBtn.title='upload image';
+      imgBtn.addEventListener('click',e=>{e.stopPropagation();fi.click();});
+      const vidBtn=document.createElement('button');vidBtn.className='frame-type-btn'+(frame.videoName?' active':'');vidBtn.textContent='🎬 video';
+      vidBtn.title='upload video (mp4, mov, webm)';
+      vidBtn.addEventListener('click',e=>{e.stopPropagation();fv.click();});
+      typeBtns.appendChild(imgBtn);typeBtns.appendChild(vidBtn);
+      imgArea.appendChild(typeBtns);
+    }
+
+    // Drag-drop: accept both image and video
     imgArea.addEventListener('dragover',e=>{if(!dragCardId){e.preventDefault();e.stopPropagation();card.classList.add('img-drag-over');}});
     imgArea.addEventListener('dragleave',()=>card.classList.remove('img-drag-over'));
     imgArea.addEventListener('drop',e=>{
       card.classList.remove('img-drag-over');if(dragCardId)return;e.preventDefault();e.stopPropagation();
-      const file=e.dataTransfer.files[0];
-      if(file&&file.type.startsWith('image/')){const r=new FileReader();r.onload=ev=>{frame.image=ev.target.result;renderAll();autoSave();};r.readAsDataURL(file);}
+      const file=e.dataTransfer.files[0];if(!file)return;
+      if(file.type.startsWith('video/')||/\.(mp4|mov|webm)$/i.test(file.name)){
+        const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
+        sessionVideoURLs.set(frame.id,URL.createObjectURL(file));
+        frame.videoName=file.name;frame.image=null;frame.annLayer=null;
+        renderAll();autoSave();
+      } else if(file.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|svg|heic|bmp)$/i.test(file.name)){
+        const r=new FileReader();
+        r.onload=ev=>{frame.image=ev.target.result;frame.videoName=null;const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);sessionVideoURLs.delete(frame.id);renderAll();autoSave();};
+        r.readAsDataURL(file);
+      }
     });
 
     const sections=document.createElement('div');sections.className='sections';
@@ -3837,6 +3937,12 @@ function renderFilmstrip(){
   b.frames.forEach((f,i)=>{
     const t=document.createElement('div');t.className='strip-thumb'+(f.id===activeFrameId?' active-thumb':'');
     if(f.image){const img=document.createElement('img');img.src=f.image;t.appendChild(img);}
+    else if(f.videoName&&sessionVideoURLs.has(f.id)){
+      const vid=document.createElement('video');vid.src=sessionVideoURLs.get(f.id);vid.preload='metadata';
+      vid.style.cssText='width:100%;height:100%;object-fit:cover;';t.appendChild(vid);
+    } else if(f.videoName){
+      const ic=document.createElement('div');ic.style.cssText='font-size:14px;opacity:.5;';ic.textContent='🎬';t.appendChild(ic);
+    }
     const num=document.createElement('span');num.className='strip-num';num.textContent=i+1;t.appendChild(num);
     t.addEventListener('click',()=>{setActiveFrame(f.id);const cards=document.querySelectorAll('.frame-card');if(cards[i])cards[i].scrollIntoView({behavior:'smooth',block:'center'});});
     strip.appendChild(t);
