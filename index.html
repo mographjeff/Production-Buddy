@@ -234,7 +234,7 @@ body.light .meta-field{border-color:#ddd;}
 .meta-field:last-child{border-right:none;}
 .meta-label{font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;flex-shrink:0;}
 body.light .meta-label{color:#aaa;}
-.meta-input{font-size:12px;font-weight:500;border:none;background:transparent;outline:none;color:#ccc;min-width:0;flex:1;font-family:inherit;letter-spacing:0;}
+.meta-input{font-size:12px;font-weight:700;border:none;background:transparent;outline:none;color:#ccc;min-width:0;flex:1;font-family:inherit;letter-spacing:0;}
 .meta-input::placeholder{color:#3a3a3a;}
 body.light .meta-input{color:#222;}
 body.light .meta-input::placeholder{color:#ccc;}
@@ -285,8 +285,10 @@ body.light .script-title{color:#bbb;}
 .script-btn:hover{background:#252525;color:#ccc;}
 body.light .script-btn{border-color:#d0ccc6;color:#888;}
 body.light .script-btn:hover{background:#f0ede8;color:#444;}
-.script-btn.primary{background:#3b82f6;color:#fff;border-color:transparent;}
+.script-btn.primary{background:#3b82f6;color:#fff !important;border-color:transparent;}
 .script-btn.primary:hover{background:#2563eb;}
+body.light .script-btn.primary{background:#3b82f6;color:#fff !important;}
+body.light .script-btn.primary:hover{background:#2563eb;}
 #script-file-input{display:none;}
 
 /* ── RICH TEXT EDITOR TOOLBAR ── */
@@ -1628,9 +1630,7 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
     <div id="sp-word-count" title="word count">0 words</div>
     <div class="divider-v"></div>
     <button class="script-btn" id="sp-find-btn" title="find &amp; replace (Ctrl+H)">find</button>
-    <button class="script-btn" id="sp-pdf-export-btn" title="export script as PDF">pdf</button>
-    <button class="script-btn primary" id="sp-import-docx-btn">import .docx</button>
-    <button class="script-btn" id="sp-import-pdf-btn">import .pdf</button>
+    <button class="script-btn primary" id="sp-import-btn">import</button>
     <button class="script-btn" id="sp-clear-btn">clear</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -1862,10 +1862,6 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
         coming soon — requires Supabase backend
       </div>
     </div>
-    <button class="script-btn primary" id="vr-upload-btn">
-      <svg width="11" height="11" viewBox="0 0 13 13" fill="none" style="margin-right:4px;vertical-align:middle;"><path d="M6.5 9V2M3.5 5l3-3 3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M1 10v1.5A1.5 1.5 0 002.5 13h8A1.5 1.5 0 0012 11.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-      load video
-    </button>
     <input type="file" id="vr-file-input" accept=".mp4,.mov,.webm,video/*" style="position:absolute;width:0;height:0;opacity:0;overflow:hidden;"/>
   </div>
 
@@ -1881,7 +1877,7 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
           <svg width="52" height="52" viewBox="0 0 52 52" fill="none"><rect x="2" y="8" width="48" height="36" rx="5" stroke="currentColor" stroke-width="2" opacity=".25"/><polygon points="20,18 20,34 36,26" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none" opacity=".4"/></svg>
         </div>
         <div class="vr-empty-title">no video loaded</div>
-        <div class="vr-empty-sub">upload an mp4, mov, or webm file to start reviewing</div>
+        <div class="vr-empty-sub">click to load an mp4, mov, or webm — or drag a file here</div>
         <button class="btn btn-primary" id="vr-empty-upload-btn" style="margin-top:8px;">load video</button>
       </div>
 
@@ -6417,8 +6413,27 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     spEl('sp-link-frame-btn').addEventListener('click',spLinkToFrame);
 
     // top bar
-    spEl('sp-import-docx-btn').addEventListener('click',()=>spEl('sp-docx-input').click());
-    spEl('sp-import-pdf-btn').addEventListener('click',()=>spEl('sp-pdf-input').click());
+    spEl('sp-import-btn').addEventListener('click',e=>{
+      // show a tiny dropdown: .docx or .pdf
+      const existing=document.getElementById('sp-import-dropdown');
+      if(existing){existing.remove();return;}
+      const drop=document.createElement('div');
+      drop.id='sp-import-dropdown';
+      drop.style.cssText='position:fixed;background:#222;border:1px solid rgba(255,255,255,0.16);border-radius:8px;padding:4px;z-index:9000;box-shadow:0 6px 20px rgba(0,0,0,0.7);min-width:120px;';
+      const r=spEl('sp-import-btn').getBoundingClientRect();
+      drop.style.left=r.left+'px';drop.style.top=(r.bottom+4)+'px';
+      [['import .docx',()=>spEl('sp-docx-input').click()],['import .pdf',()=>spEl('sp-pdf-input').click()]].forEach(([label,fn])=>{
+        const it=document.createElement('div');
+        it.textContent=label;
+        it.style.cssText='padding:7px 10px;font-size:12px;color:#ccc;border-radius:6px;cursor:pointer;';
+        it.onmouseenter=()=>it.style.background='#2e2e2e';
+        it.onmouseleave=()=>it.style.background='';
+        it.addEventListener('click',()=>{drop.remove();fn();});
+        drop.appendChild(it);
+      });
+      document.body.appendChild(drop);
+      setTimeout(()=>document.addEventListener('click',function h(){drop.remove();document.removeEventListener('click',h);},{once:true}),0);
+    });
     spEl('sp-docx-input').addEventListener('change',spHandleDocxImport);
     spEl('sp-pdf-input').addEventListener('change',spHandlePDFImport);
     spEl('sp-clear-btn').addEventListener('click',()=>{
@@ -6430,7 +6445,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
         spUpdateWordCount();spUpdateVOSync();autoSave();showToast('script cleared');
       }
     });
-    spEl('sp-pdf-export-btn').addEventListener('click',spExportPDF);
+    // sp-pdf-export-btn removed from toolbar
     spEl('sp-find-btn').addEventListener('click',spShowFind);
 
     // find bar
@@ -6763,7 +6778,6 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     const fileInput=vr('vr-file-input');
 
     // file buttons
-    vr('vr-upload-btn').addEventListener('click',()=>fileInput.click());
     vr('vr-empty-upload-btn').addEventListener('click',()=>fileInput.click());
     fileInput.addEventListener('change',e=>{
       const f=e.target.files[0];
