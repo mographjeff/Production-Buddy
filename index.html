@@ -1641,7 +1641,9 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
     <div id="sp-word-count" title="word count">0 words</div>
     <div class="divider-v"></div>
     <button class="script-btn" id="sp-find-btn" title="find &amp; replace (Ctrl+H)">find</button>
-    <button class="script-btn primary" id="sp-import-btn">import</button>
+    <label class="script-btn primary" id="sp-import-btn" style="position:relative;overflow:hidden;cursor:pointer;">import
+      <input type="file" id="sp-import-input" accept=".docx,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+    </label>
     <button class="script-btn" id="sp-clear-btn">clear</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -1873,7 +1875,6 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
         coming soon — requires Supabase backend
       </div>
     </div>
-    <input type="file" id="vr-file-input" accept=".mp4,.mov,.webm,video/*" style="position:absolute;width:0;height:0;opacity:0;overflow:hidden;"/>
   </div>
 
   <!-- main body: player left, sidebar right -->
@@ -1889,7 +1890,9 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
         </div>
         <div class="vr-empty-title">no video loaded</div>
         <div class="vr-empty-sub">click to load an mp4, mov, or webm — or drag a file here</div>
-        <button class="btn btn-primary" id="vr-empty-upload-btn" style="margin-top:8px;">load video</button>
+        <label class="btn btn-primary" id="vr-empty-upload-btn" style="margin-top:8px;position:relative;overflow:hidden;cursor:pointer;">load video
+          <input type="file" id="vr-file-input" accept=".mp4,.mov,.webm,video/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
+        </label>
       </div>
 
       <!-- video element (hidden until loaded) -->
@@ -6519,26 +6522,20 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     spEl('sp-link-frame-btn').addEventListener('click',spLinkToFrame);
 
     // top bar
-    spEl('sp-import-btn').addEventListener('click',e=>{
-      // show a tiny dropdown: .docx or .pdf
-      const existing=document.getElementById('sp-import-dropdown');
-      if(existing){existing.remove();return;}
-      const drop=document.createElement('div');
-      drop.id='sp-import-dropdown';
-      drop.style.cssText='position:fixed;background:#222;border:1px solid rgba(255,255,255,0.16);border-radius:8px;padding:4px;z-index:9000;box-shadow:0 6px 20px rgba(0,0,0,0.7);min-width:120px;';
-      const r=spEl('sp-import-btn').getBoundingClientRect();
-      drop.style.left=r.left+'px';drop.style.top=(r.bottom+4)+'px';
-      [['import .docx',()=>spEl('sp-docx-input').click()],['import .pdf',()=>spEl('sp-pdf-input').click()]].forEach(([label,fn])=>{
-        const it=document.createElement('div');
-        it.textContent=label;
-        it.style.cssText='padding:7px 10px;font-size:12px;color:#ccc;border-radius:6px;cursor:pointer;';
-        it.onmouseenter=()=>it.style.background='#2e2e2e';
-        it.onmouseleave=()=>it.style.background='';
-        it.addEventListener('click',()=>{drop.remove();fn();});
-        drop.appendChild(it);
-      });
-      document.body.appendChild(drop);
-      setTimeout(()=>document.addEventListener('click',function h(){drop.remove();document.removeEventListener('click',h);},{once:true}),0);
+    // Single import input routes by file extension
+    spEl('sp-import-input').addEventListener('change',e=>{
+      const file=e.target.files[0];if(!file)return;
+      e.target.value='';
+      if(/\.docx$/i.test(file.name)){
+        // spHandleDocxImport expects e.target.files[0] via a fake event
+        const dt=new DataTransfer();dt.items.add(file);
+        const fake={target:{files:dt.files}};
+        spHandleDocxImport(fake);
+      } else if(/\.pdf$/i.test(file.name)){
+        const dt=new DataTransfer();dt.items.add(file);
+        const fake={target:{files:dt.files}};
+        spHandlePDFImport(fake);
+      }
     });
     spEl('sp-docx-input').addEventListener('change',spHandleDocxImport);
     spEl('sp-pdf-input').addEventListener('change',spHandlePDFImport);
@@ -6884,7 +6881,6 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     const fileInput=vr('vr-file-input');
 
     // file buttons
-    vr('vr-empty-upload-btn').addEventListener('click',()=>fileInput.click());
     fileInput.addEventListener('change',e=>{
       const f=e.target.files[0];
       if(f)vrLoadFile(f);
