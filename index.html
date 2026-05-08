@@ -568,7 +568,8 @@ body.light #canvas-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
 /* ── BRAINSTORM PANEL ── */
 #bs-toolbar{display:flex;align-items:center;gap:3px;padding:0 10px;height:38px;background:#1a1a1a;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;z-index:10;}
 body.light #bs-toolbar{background:#f7f5f0;border-color:#d8d4cd;}
-.bs-tool-btn{display:flex;align-items:center;gap:5px;padding:0 8px;height:26px;border-radius:6px;border:1px solid transparent;background:transparent;color:#666;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background .12s,color .12s;}
+.bs-tool-btn{display:flex;align-items:center;gap:5px;padding:0 8px;height:26px;border-radius:6px;border:1px solid transparent;background:transparent;color:#666;cursor:pointer;font-size:11px;font-family:inherit;white-space:nowrap;flex-shrink:0;transition:background .12s,color .12s,opacity .12s;}
+.bs-tool-btn:disabled{opacity:0.28!important;cursor:default;pointer-events:none;}
 .bs-tool-btn:hover{background:#252525;color:#ccc;}
 .bs-tool-btn.active{background:#3b82f620;border-color:#3b82f640;color:#3b82f6;}
 body.light .bs-tool-btn{color:#aaa;}
@@ -719,6 +720,27 @@ body.light .bs-palette-vals{color:#999;}
 .bs-palette-hex{color:#888;font-weight:600;}
 body.light .bs-palette-hex{color:#666;}
 .bs-palette-spot-badge{display:inline-block;font-size:8px;font-weight:700;color:#f59e0b;background:rgba(245,158,11,0.15);border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:middle;letter-spacing:.03em;text-transform:uppercase;}
+/* CSV CARD */
+.bs-csv-meta{font-size:9.5px;color:#555;padding:3px 9px 2px;flex-shrink:0;display:flex;align-items:center;gap:6px;}
+body.light .bs-csv-meta{color:#aaa;}
+.bs-csv-search{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:4px;color:#ccc;font-size:9.5px;padding:2px 6px;flex:1;min-width:0;font-family:inherit;}
+body.light .bs-csv-search{background:#fff;border-color:#ddd;color:#333;}
+.bs-csv-search::placeholder{color:#555;}
+body.light .bs-csv-search::placeholder{color:#bbb;}
+.bs-csv-table-wrap{overflow:auto;flex:1;min-height:0;}
+.bs-csv-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:10.5px;}
+.bs-csv-table th{background:#1a1a1a;color:#666;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:9px;padding:4px 9px;border-bottom:1px solid rgba(255,255,255,0.09);white-space:nowrap;position:sticky;top:0;z-index:2;cursor:default;}
+body.light .bs-csv-table th{background:#f0ede7;color:#999;border-color:rgba(0,0,0,0.08);}
+.bs-csv-table td{padding:3px 9px;border-bottom:1px solid rgba(255,255,255,0.04);color:#bbb;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;}
+body.light .bs-csv-table td{color:#444;border-color:rgba(0,0,0,0.05);}
+.bs-csv-table tr:hover td{background:rgba(255,255,255,0.03);}
+body.light .bs-csv-table tr:hover td{background:rgba(0,0,0,0.02);}
+.bs-csv-email{color:#60a5fa;text-decoration:none;}
+.bs-csv-email:hover{text-decoration:underline;}
+.bs-csv-phone{color:#34d399;text-decoration:none;}
+.bs-csv-phone:hover{text-decoration:underline;}
+.bs-csv-url-link{color:#a78bfa;text-decoration:none;}
+.bs-csv-url-link:hover{text-decoration:underline;}
 
 /* CONTEXT MENU */
 #bs-ctx-menu .menu-item{padding:7px 10px;font-size:12px;color:#ccc;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:9px;}
@@ -1519,6 +1541,13 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
       <span class="bs-btn-label">snap</span>
     </button>
     <div class="bs-divider"></div>
+    <button class="bs-tool-btn" id="bs-undo-btn" title="undo (⌘Z)" disabled style="opacity:0.35;">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 5.5H8.5a3 3 0 010 6H5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 3L2 5.5 4.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="bs-tool-btn" id="bs-redo-btn" title="redo (⌘⇧Z)" disabled style="opacity:0.35;">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11 5.5H4.5a3 3 0 000 6H8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 3L11 5.5 8.5 8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="bs-divider"></div>
     <button class="bs-tool-btn" id="bs-add-text" title="text note">
       <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><line x1="1" y1="2.5" x2="12" y2="2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="6.5" y1="2.5" x2="6.5" y2="11.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
       <span class="bs-btn-label">text</span>
@@ -1569,38 +1598,6 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
 <!-- ═══ SCRIPT ═══ -->
 <div class="slide-panel sp-closed" data-panel="script" id="sp-script">
   <div class="sp-content">
-<!-- Link/embed dialog -->
-<div id="bs-link-dialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:800;align-items:center;justify-content:center;">
-  <div style="background:#1e1e1e;border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:22px;width:420px;max-width:96vw;">
-    <div style="font-size:13px;font-weight:600;color:#eee;margin-bottom:14px;">add link card</div>
-    <div class="modal-label">url</div>
-    <input id="bs-link-url" class="invite-input" placeholder="https://… or YouTube/Vimeo URL" style="width:100%;margin-bottom:10px;"/>
-    <div class="modal-label">title (optional)</div>
-    <input id="bs-link-title" class="invite-input" placeholder="card title" style="width:100%;margin-bottom:16px;"/>
-    <div style="display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn" id="bs-link-cancel">cancel</button>
-      <button class="btn btn-primary" id="bs-link-ok">add</button>
-    </div>
-  </div>
-</div>
-
-<!-- Brainstorm context menu -->
-<div id="bs-ctx-menu" style="display:none;position:fixed;background:#222;border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px;z-index:900;min-width:170px;box-shadow:0 6px 24px rgba(0,0,0,0.7);">
-</div>
-
-<!-- Brainstorm card color picker popup -->
-<div id="bs-color-popup" style="display:none;position:fixed;z-index:950;background:#1e1e1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:180px;">
-  <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">card color</div>
-  <div id="bs-color-swatches" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
-  <div style="display:flex;align-items:center;gap:7px;">
-    <span style="font-size:10px;color:#555;">custom</span>
-    <input type="color" id="bs-custom-color" value="#3b82f6" style="width:28px;height:22px;border:none;background:transparent;cursor:pointer;padding:0;border-radius:4px;"/>
-    <button id="bs-color-reset" style="flex:1;font-size:10px;padding:3px 7px;border:1px solid rgba(255,255,255,0.12);border-radius:5px;background:transparent;color:#666;cursor:pointer;">reset</button>
-  </div>
-</div>
-
-<!-- Marquee selection box (lives inside bs-world) -->
-<div id="bs-marquee" style="display:none;position:absolute;border:1.5px dashed #3b82f6;background:rgba(59,130,246,0.07);pointer-events:none;z-index:50;border-radius:2px;"></div>
 
 <!-- ── SCRIPT PANEL (phase 3) ── -->
 <div class="app-panel" id="panel-script-standalone">
@@ -4509,6 +4506,43 @@ init();
   let selectedCardId=null;
   let selectedCardIds=new Set(); // marquee multi-select
   let snapEnabled=false;
+  // ── UNDO / REDO ──────────────────────────────────────────────
+  const BS_MAX_HISTORY=60;
+  let bsHistory=[]; // past snapshots (oldest→newest)
+  let bsFuture=[]; // redo stack
+  function bsSnapshot(){return{cards:JSON.parse(JSON.stringify(bsCards)),nextCardId};}
+  function bsPushHistory(){
+    bsHistory.push(bsSnapshot());
+    if(bsHistory.length>BS_MAX_HISTORY)bsHistory.shift();
+    bsFuture=[];
+    bsUpdateUndoButtons();
+  }
+  function bsUndo(){
+    if(!bsHistory.length)return;
+    bsFuture.push(bsSnapshot());
+    const snap=bsHistory.pop();
+    bsCards=snap.cards;nextCardId=snap.nextCardId;
+    window._pbBsCards=bsCards;
+    bsRenderAll();bsSave();bsUpdateUndoButtons();
+  }
+  function bsRedo(){
+    if(!bsFuture.length)return;
+    bsHistory.push(bsSnapshot());
+    const snap=bsFuture.pop();
+    bsCards=snap.cards;nextCardId=snap.nextCardId;
+    window._pbBsCards=bsCards;
+    bsRenderAll();bsSave();bsUpdateUndoButtons();
+  }
+  function bsRenderAll(){
+    selectedCardId=null;selectedCardIds=new Set();
+    renderAllCards();
+  }
+  function bsUpdateUndoButtons(){
+    const u=document.getElementById('bs-undo-btn');
+    const r=document.getElementById('bs-redo-btn');
+    if(u)u.disabled=!bsHistory.length;
+    if(r)r.disabled=!bsFuture.length;
+  }
   const SNAP_GRID=20;
   let autoSaveTimer=null;
   const MIN_ZOOM=0.1,MAX_ZOOM=4;
@@ -4568,6 +4602,8 @@ init();
     const snapBtn=document.getElementById('bs-snap-toggle');
     if(snapBtn)snapBtn.classList.toggle('snap-on',snapEnabled);
     selectedCardId=null;selectedCardIds.clear();
+    // clear history when switching boards
+    bsHistory=[];bsFuture=[];bsUpdateUndoButtons();
   }
   window.bsLoadFromBoard=bsLoadFromBoard;
   window.bsSyncToBoard=bsSyncToBoard;
@@ -4666,13 +4702,13 @@ init();
       if(!card.cardBg)el.style.borderColor=barColor;
     }
   }
-  function defaultW(type){return{text:220,image:240,link:240,file:200,section:280,audio:220,video:280,palette:240}[type]||200;}
-  function defaultH(type){return{text:120,image:180,link:200,file:72,section:70,audio:110,video:190,palette:300}[type]||120;}
+  function defaultW(type){return{text:220,image:240,link:240,file:200,section:280,audio:220,video:280,palette:240,csv:360}[type]||200;}
+  function defaultH(type){return{text:120,image:180,link:200,file:72,section:70,audio:110,video:190,palette:300,csv:300}[type]||120;}
 
   function buildCardHTML(card){
     const dragIcon=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="3" cy="3" r="1" fill="currentColor"/><circle cx="7" cy="3" r="1" fill="currentColor"/><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>`;
     const resizeIcon=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.2"/><line x1="9" y1="5" x2="5" y2="9" stroke="currentColor" stroke-width="1.2"/></svg>`;
-    const typeIcons={text:'T',image:'⬜',link:'🔗',file:'📄',section:'▬',palette:'🎨'};
+    const typeIcons={text:'T',image:'⬜',link:'🔗',file:'📄',section:'▬',palette:'🎨',csv:'⊞'};
     const header=`<div class="bs-card-header">
       <span class="bs-card-type-icon">${typeIcons[card.type]||''}</span>
       <input class="bs-card-title-edit" value="${esc(card.title||'')}" placeholder="${card.type} card"/>
@@ -4739,6 +4775,38 @@ init();
       }).join('');
       const empty=`<div style="font-size:11px;color:#444;padding:8px;">no colors found</div>`;
       return header+`<div class="bs-palette-grid">${rows||empty}</div>`+resize;
+    }
+    if(card.type==='csv'){
+      const headers=card.csvHeaders||[];
+      const rows=card.csvRows||[];
+      const total=card.csvTotal||rows.length;
+      if(!headers.length){
+        return header+`<div class="bs-card-body" style="display:flex;align-items:center;justify-content:center;font-size:11px;color:#444;">loading…</div>`+resize;
+      }
+      // detect column types from header names + sample values
+      const colType=headers.map((h,ci)=>{
+        const hLow=h.toLowerCase();
+        if(/e.?mail/.test(hLow))return'email';
+        if(/phone|mobile|cell|tel/.test(hLow))return'phone';
+        if(/^url$|website|linkedin|twitter|instagram/.test(hLow))return'url';
+        const samp=rows.slice(0,8).map(r=>(r[ci]||'').trim());
+        if(samp.some(v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)))return'email';
+        if(samp.some(v=>/^[\+\d][\d\s\-\.\(\)]{6,}$/.test(v)))return'phone';
+        if(samp.some(v=>/^https?:\/\//.test(v)))return'url';
+        return'text';
+      });
+      const shown=rows.length<total?` <span style="opacity:.55;">(showing ${rows.length})</span>`:'';
+      const thead='<tr>'+headers.map(h=>`<th title="${esc(h)}">${esc(h)}</th>`).join('')+'</tr>';
+      const tbody=rows.map(r=>'<tr>'+headers.map((_,ci)=>{
+        const v=(r[ci]||'').trim();
+        if(!v)return`<td>&nbsp;</td>`;
+        if(colType[ci]==='email')return`<td><a class="bs-csv-email" href="mailto:${esc(v)}" onclick="event.stopPropagation();event.preventDefault();navigator.clipboard&&navigator.clipboard.writeText('${esc(v)}').then(()=>window.showToast&&window.showToast('copied'))" title="click to copy">${esc(v)}</a></td>`;
+        if(colType[ci]==='phone')return`<td><a class="bs-csv-phone" href="tel:${esc(v)}" onclick="event.stopPropagation();event.preventDefault();navigator.clipboard&&navigator.clipboard.writeText('${esc(v)}').then(()=>window.showToast&&window.showToast('copied'))" title="click to copy">${esc(v)}</a></td>`;
+        if(colType[ci]==='url')return`<td><a class="bs-csv-url-link" href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(v)}">${esc(v.replace(/^https?:\/\//,''))}</a></td>`;
+        return`<td title="${esc(v)}">${esc(v)}</td>`;
+      }).join('')+'</tr>').join('');
+      const countLabel=`${total} row${total!==1?'s':''}  ·  ${headers.length} col${headers.length!==1?'s':''}${shown}`;
+      return header+`<div class="bs-csv-meta"><span>${countLabel}</span><input class="bs-csv-search" placeholder="filter…" data-cardid="${card.id}"/></div><div class="bs-csv-table-wrap"><table class="bs-csv-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`+resize;
     }
     if(card.type==='section'){
       const grip=`<span class="bs-section-grip"><span></span><span></span><span></span><span></span><span></span><span></span></span>`;
@@ -4874,6 +4942,51 @@ init();
     r.readAsArrayBuffer(file);
   }
 
+  // ── CSV PARSER + LOADER ───────────────────────────────────────
+  function parseCSVText(text){
+    const rows=[];
+    const lines=text.split(/\r?\n|\r/);
+    for(const line of lines){
+      if(!line.trim())continue;
+      const row=[];let inQ=false,field='';
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch==='"'){
+          if(inQ&&line[i+1]==='"'){field+='"';i++;}
+          else{inQ=!inQ;}
+        }else if(ch===','&&!inQ){
+          row.push(field.trim());field='';
+        }else{field+=ch;}
+      }
+      row.push(field.trim());
+      rows.push(row);
+    }
+    return rows;
+  }
+  const CSV_DISPLAY_LIMIT=500;
+  function loadCSVToCard(card,file){
+    const r=new FileReader();
+    r.onload=ev=>{
+      const allRows=parseCSVText(ev.target.result);
+      if(!allRows.length)return;
+      const headers=allRows[0].map(h=>h.replace(/^"|"$/g,'').trim());
+      const dataRows=allRows.slice(1).filter(row=>row.some(c=>c!==''));
+      card.csvHeaders=headers;
+      card.csvRows=dataRows.slice(0,CSV_DISPLAY_LIMIT);
+      card.csvTotal=dataRows.length;
+      // auto-size height to show ~8 rows comfortably, capped
+      card.h=Math.min(500,Math.max(200,card.csvRows.length*22+90));
+      const el=document.getElementById('bsc-'+card.id);
+      if(el){
+        el.style.height=card.h+'px';
+        el.innerHTML=buildCardHTML(card);
+        attachCardEvents(el,card);
+      }
+      bsSave();
+    };
+    r.readAsText(file);
+  }
+
   // ── CARD EVENTS ────────────────────────────────────────────────
   function attachCardEvents(el,card){
     // Title input
@@ -4889,6 +5002,50 @@ init();
       ta.addEventListener('input',()=>{card.text=ta.value;bsSave();});
       ta.addEventListener('mousedown',e=>e.stopPropagation());
       ta.addEventListener('pointerdown',e=>e.stopPropagation());
+    }
+    // CSV live search filter
+    if(card.type==='csv'){
+      const searchInput=el.querySelector('.bs-csv-search');
+      if(searchInput){
+        searchInput.addEventListener('mousedown',e=>e.stopPropagation());
+        searchInput.addEventListener('pointerdown',e=>e.stopPropagation());
+        searchInput.addEventListener('input',()=>{
+          const q=searchInput.value.toLowerCase();
+          const tbody=el.querySelector('.bs-csv-table tbody');
+          if(!tbody)return;
+          const rows=card.csvRows||[];
+          const filtered=q?rows.filter(r=>r.some(c=>c.toLowerCase().includes(q))):rows;
+          const headers=card.csvHeaders||[];
+          const total=card.csvTotal||rows.length;
+          // re-detect col types (cached from original build)
+          const colType=headers.map((h,ci)=>{
+            const hLow=h.toLowerCase();
+            if(/e.?mail/.test(hLow))return'email';
+            if(/phone|mobile|cell|tel/.test(hLow))return'phone';
+            if(/^url$|website|linkedin|twitter|instagram/.test(hLow))return'url';
+            const samp=rows.slice(0,8).map(r=>(r[ci]||'').trim());
+            if(samp.some(v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)))return'email';
+            if(samp.some(v=>/^[\+\d][\d\s\-\.\(\)]{6,}$/.test(v)))return'phone';
+            if(samp.some(v=>/^https?:\/\//.test(v)))return'url';
+            return'text';
+          });
+          tbody.innerHTML=filtered.map(r=>'<tr>'+headers.map((_,ci)=>{
+            const v=(r[ci]||'').trim();
+            if(!v)return`<td>&nbsp;</td>`;
+            if(colType[ci]==='email')return`<td><a class="bs-csv-email" href="mailto:${esc(v)}" onclick="event.stopPropagation();event.preventDefault();navigator.clipboard&&navigator.clipboard.writeText('${esc(v)}').then(()=>window.showToast&&window.showToast('copied'))" title="click to copy">${esc(v)}</a></td>`;
+            if(colType[ci]==='phone')return`<td><a class="bs-csv-phone" href="tel:${esc(v)}" onclick="event.stopPropagation();event.preventDefault();navigator.clipboard&&navigator.clipboard.writeText('${esc(v)}').then(()=>window.showToast&&window.showToast('copied'))" title="click to copy">${esc(v)}</a></td>`;
+            if(colType[ci]==='url')return`<td><a class="bs-csv-url-link" href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(v)}">${esc(v.replace(/^https?:\/\//,''))}</a></td>`;
+            return`<td title="${esc(v)}">${esc(v)}</td>`;
+          }).join('')+'</tr>').join('');
+          // update count label
+          const meta=el.querySelector('.bs-csv-meta span');
+          if(meta){
+            const showing=q?` — ${filtered.length} match${filtered.length!==1?'es':''}`:
+              (rows.length<total?` (showing ${rows.length} of ${total})`:'');
+            meta.innerHTML=`${total} row${total!==1?'s':''} · ${headers.length} col${headers.length!==1?'s':''}${showing?`<span style="opacity:.55;">${esc(showing)}</span>`:''}`;
+          }
+        });
+      }
     }
     // Image drag/drop + double-click lightbox
     if(card.type==='image'){
@@ -5016,6 +5173,7 @@ init();
     if(activeTool==='hand')return;
     e.preventDefault();e.stopPropagation();
     selectCard(card.id);
+    bsPushHistory();
     const startX=e.clientX,startY=e.clientY;
     el.style.cursor='grabbing';
     document.body.style.userSelect='none';
@@ -5054,6 +5212,7 @@ init();
   // ── RESIZE ────────────────────────────────────────────────────
   function startCardResize(e,card,el){
     e.preventDefault();
+    bsPushHistory();
     const startX=e.clientX,startY=e.clientY;
     const ow=card.w||defaultW(card.type),oh=card.h||defaultH(card.type);
     function onMove(ev){
@@ -5109,7 +5268,7 @@ init();
       {label:'bring to front',icon:'↑',fn:()=>bringToFront(card)},
       {label:'send to back', icon:'↓',fn:()=>sendToBack(card)},
       {divider:true},
-      {label:'delete',icon:'✕',danger:true,fn:()=>deleteCard(card.id)}
+      {label:'delete',icon:'✕',danger:true,fn:()=>{bsPushHistory();deleteCard(card.id);}}
     );
     items.forEach(item=>{
       if(item.divider){const d=document.createElement('div');d.className='menu-divider';m.appendChild(d);return;}
@@ -5131,6 +5290,7 @@ init();
 
   // ── CARD OPERATIONS ───────────────────────────────────────────
   function addCard(card){
+    bsPushHistory();
     bsCards.push(card);
     window._pbBsCards=bsCards;
     renderCard(card);
@@ -5260,6 +5420,7 @@ init();
     addCard({id:nextCardId++,type:'file',title:'',filename:filename||'file',x:p.x,y:p.y,w:200,h:72});
   }
   function addSectionCard(){
+    bsPushHistory();
     const p=newCardPos();
     const bg=SECTION_COLORS[sectionColorIdx%SECTION_COLORS.length];
     const border=SECTION_BORDERS[sectionColorIdx%SECTION_BORDERS.length];
@@ -5315,14 +5476,19 @@ init();
         const AUDIO_EXTS=/\.(mp3|wav|aif|aiff|ogg|m4a|flac|aac)$/i;
         const VIDEO_EXTS=/\.(mp4|mov|webm|m4v|avi)$/i;
         const ASE_EXT=/\.ase$/i;
+        const CSV_EXT=/\.csv$/i;
         Array.from(e.dataTransfer.files).forEach((file,i)=>{
           const isImg=file.type.startsWith('image/')||IMG_EXTS.test(file.name);
           const isAudio=file.type.startsWith('audio/')||AUDIO_EXTS.test(file.name);
           const isVideo=file.type.startsWith('video/')||VIDEO_EXTS.test(file.name);
           const isASE=ASE_EXT.test(file.name);
+          const isCSV=CSV_EXT.test(file.name)||file.type==='text/csv';
           if(isASE){
             const card={id:nextCardId++,type:'palette',title:file.name.replace(/\.ase$/i,''),swatches:[],x:wpt.x+i*28,y:wpt.y+i*28,w:260,h:300};
             bsCards.push(card);renderCard(card);loadASEToCard(card,file);
+          }else if(isCSV){
+            const card={id:nextCardId++,type:'csv',title:file.name.replace(/\.csv$/i,''),csvHeaders:[],csvRows:[],csvTotal:0,x:wpt.x+i*28,y:wpt.y+i*28,w:360,h:300};
+            bsCards.push(card);renderCard(card);loadCSVToCard(card,file);
           }else if(isImg){
             const card={id:nextCardId++,type:'image',title:file.name,image:null,x:wpt.x+i*28,y:wpt.y+i*28,w:240,h:190};
             bsCards.push(card);renderCard(card);loadImageFileToCard(card,file);
@@ -5405,12 +5571,20 @@ init();
       }
       if(e.key==='Delete'||e.key==='Backspace'){
         if(selectedCardIds.size>0){
+          bsPushHistory();
           [...selectedCardIds].forEach(id=>deleteCard(id));
           selectedCardIds.clear();
         } else if(selectedCardId!==null){
+          bsPushHistory();
           deleteCard(selectedCardId);
         }
       }
+      // Cmd/Ctrl+Z → undo
+      if((e.metaKey||e.ctrlKey)&&!e.shiftKey&&e.key==='z'){e.preventDefault();bsUndo();return;}
+      // Cmd/Ctrl+Shift+Z → redo
+      if((e.metaKey||e.ctrlKey)&&e.shiftKey&&e.key==='z'){e.preventDefault();bsRedo();return;}
+      // Cmd/Ctrl+Y → redo (Windows style)
+      if((e.metaKey||e.ctrlKey)&&e.key==='y'){e.preventDefault();bsRedo();return;}
       // Cmd/Ctrl+C → copy selected card
       if((e.metaKey||e.ctrlKey)&&e.key==='c'){
         if(selectedCardId!==null){const card=bsGetCard(selectedCardId);if(card){copyCard(card);e.preventDefault();}}
@@ -5493,6 +5667,10 @@ init();
     document.getElementById('bs-tool-select').addEventListener('click',()=>setActiveTool('select'));
     document.getElementById('bs-tool-hand').addEventListener('click',()=>setActiveTool('hand'));
 
+    // Undo / Redo buttons
+    document.getElementById('bs-undo-btn').addEventListener('click',()=>bsUndo());
+    document.getElementById('bs-redo-btn').addEventListener('click',()=>bsRedo());
+
     // Snap toggle
     const snapBtn=document.getElementById('bs-snap-toggle');
     snapBtn.classList.toggle('snap-on',snapEnabled);
@@ -5505,11 +5683,12 @@ init();
     document.getElementById('bs-add-text').addEventListener('click',addTextCard);
     document.getElementById('bs-add-section').addEventListener('click',addSectionCard);
 
-    // Upload — detect image / audio / video / file
+    // Upload — detect image / audio / video / csv / file
     const IMAGE_EXTS=/\.(gif|png|jpe?g|webp|svg|heic|heif|bmp|tiff?)$/i;
     const AUDIO_EXTS=/\.(mp3|wav|aif|aiff|ogg|m4a|flac|aac)$/i;
     const VIDEO_EXTS=/\.(mp4|mov|webm|m4v|avi)$/i;
     const ASE_EXT=/\.ase$/i;
+    const CSV_EXT=/\.csv$/i;
 
     document.getElementById('bs-add-upload').addEventListener('click',()=>{
       document.getElementById('bs-file-input').click();
@@ -5520,10 +5699,14 @@ init();
         const isAudio=file.type.startsWith('audio/')||AUDIO_EXTS.test(file.name);
         const isVideo=file.type.startsWith('video/')||VIDEO_EXTS.test(file.name);
         const isASE=ASE_EXT.test(file.name);
+        const isCSV=CSV_EXT.test(file.name)||file.type==='text/csv';
         const p=newCardPos();
         if(isASE){
           const card={id:nextCardId++,type:'palette',title:file.name.replace(/\.ase$/i,''),swatches:[],x:p.x+i*28,y:p.y+i*28,w:260,h:300};
           bsCards.push(card);renderCard(card);loadASEToCard(card,file);
+        }else if(isCSV){
+          const card={id:nextCardId++,type:'csv',title:file.name.replace(/\.csv$/i,''),csvHeaders:[],csvRows:[],csvTotal:0,x:p.x+i*28,y:p.y+i*28,w:360,h:300};
+          bsCards.push(card);renderCard(card);loadCSVToCard(card,file);
         }else if(isImg){
           const card={id:nextCardId++,type:'image',title:file.name,image:null,x:p.x+i*28,y:p.y+i*28,w:240,h:190};
           bsCards.push(card);renderCard(card);loadImageFileToCard(card,file);
@@ -5565,10 +5748,10 @@ init();
 
     // Clear all
     document.getElementById('bs-clear-all').addEventListener('click',()=>{
-      if(selectedCardId!==null){deleteCard(selectedCardId);return;}
-      if(selectedCardIds.size>0){[...selectedCardIds].forEach(id=>deleteCard(id));selectedCardIds.clear();return;}
+      if(selectedCardId!==null){bsPushHistory();deleteCard(selectedCardId);return;}
+      if(selectedCardIds.size>0){bsPushHistory();[...selectedCardIds].forEach(id=>deleteCard(id));selectedCardIds.clear();return;}
       if(!bsCards.length)return;
-      if(confirm('Clear all brainstorm cards?')){bsCards=[];world.innerHTML='';const m=document.getElementById('bs-marquee');if(m)world.appendChild(m);bsSave();}
+      if(confirm('Clear all brainstorm cards?')){bsPushHistory();bsCards=[];world.innerHTML='';const m=document.getElementById('bs-marquee');if(m)world.appendChild(m);bsSave();}
     });
 
     // Color popup swatches
@@ -8309,4 +8492,40 @@ if(document.readyState==='loading'){
 
 })();
 </script>
+
+<!-- ═══ BRAINSTORM OVERLAYS — must live at body level so position:fixed isn't clipped by slide-panel transforms ═══ -->
+
+<!-- Link/embed dialog -->
+<div id="bs-link-dialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:800;align-items:center;justify-content:center;">
+  <div style="background:#1e1e1e;border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:22px;width:420px;max-width:96vw;">
+    <div style="font-size:13px;font-weight:600;color:#eee;margin-bottom:14px;">add link card</div>
+    <div class="modal-label">url</div>
+    <input id="bs-link-url" class="invite-input" placeholder="https://… or YouTube/Vimeo URL" style="width:100%;margin-bottom:10px;"/>
+    <div class="modal-label">title (optional)</div>
+    <input id="bs-link-title" class="invite-input" placeholder="card title" style="width:100%;margin-bottom:16px;"/>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" id="bs-link-cancel">cancel</button>
+      <button class="btn btn-primary" id="bs-link-ok">add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Brainstorm context menu -->
+<div id="bs-ctx-menu" style="display:none;position:fixed;background:#222;border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px;z-index:900;min-width:170px;box-shadow:0 6px 24px rgba(0,0,0,0.7);">
+</div>
+
+<!-- Brainstorm card color picker popup -->
+<div id="bs-color-popup" style="display:none;position:fixed;z-index:950;background:#1e1e1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:180px;">
+  <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">card color</div>
+  <div id="bs-color-swatches" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+  <div style="display:flex;align-items:center;gap:7px;">
+    <span style="font-size:10px;color:#555;">custom</span>
+    <input type="color" id="bs-custom-color" value="#3b82f6" style="width:28px;height:22px;border:none;background:transparent;cursor:pointer;padding:0;border-radius:4px;"/>
+    <button id="bs-color-reset" style="flex:1;font-size:10px;padding:3px 7px;border:1px solid rgba(255,255,255,0.12);border-radius:5px;background:transparent;color:#666;cursor:pointer;">reset</button>
+  </div>
+</div>
+
+<!-- Marquee selection box (rendered inside bs-world via JS, this stub kept here for parity) -->
+<div id="bs-marquee" style="display:none;position:absolute;border:1.5px dashed #3b82f6;background:rgba(59,130,246,0.07);pointer-events:none;z-index:50;border-radius:2px;"></div>
+
 </body></html>
