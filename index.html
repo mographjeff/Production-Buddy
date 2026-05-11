@@ -5461,7 +5461,7 @@ init();
       {label:'bring to front',icon:'↑',fn:()=>bringToFront(card)},
       {label:'send to back', icon:'↓',fn:()=>sendToBack(card)},
       {divider:true},
-      {label:'delete',icon:'✕',danger:true,fn:()=>{bsPushHistory();deleteCard(card.id);}}
+      {label:'delete',icon:'✕',danger:true,fn:()=>{bsPushHistory();deleteCard(card.id);bsSave();}}
     );
     items.forEach(item=>{
       if(item.divider){const d=document.createElement('div');d.className='menu-divider';m.appendChild(d);return;}
@@ -5939,10 +5939,16 @@ init();
     document.getElementById('bs-zoom-out').addEventListener('click',()=>setZoom(viewZoom*0.8));
     document.getElementById('bs-zoom-reset').addEventListener('click',fitToScreen);
 
-    // Clear all
+    // Clear all / delete selected
     document.getElementById('bs-clear-all').addEventListener('click',()=>{
-      if(selectedCardId!==null){bsPushHistory();deleteCard(selectedCardId);return;}
-      if(selectedCardIds.size>0){bsPushHistory();[...selectedCardIds].forEach(id=>deleteCard(id));selectedCardIds.clear();return;}
+      // Fallback: if selectedCardId is stale, check DOM for a selected card
+      let idToDelete=selectedCardId;
+      if(idToDelete===null){
+        const selEl=document.querySelector('#bs-world .bs-card.selected');
+        if(selEl)idToDelete=parseInt(selEl.id.replace('bsc-',''))||null;
+      }
+      if(idToDelete!==null){bsPushHistory();deleteCard(idToDelete);bsSave();return;}
+      if(selectedCardIds.size>0){bsPushHistory();[...selectedCardIds].forEach(id=>deleteCard(id));selectedCardIds.clear();bsSave();return;}
       if(!bsCards.length)return;
       if(confirm('Clear all brainstorm cards?')){bsPushHistory();bsCards=[];world.innerHTML='';const m=document.getElementById('bs-marquee');if(m)world.appendChild(m);bsSave();}
     });
@@ -6133,12 +6139,19 @@ init();
     setupCanvasDrop();
     setupCanvasEvents();
     setupToolbar();
-    // Lightbox close
+    // Lightbox close — direct listener on button + background click + Escape
+    document.getElementById('bs-lightbox-close').addEventListener('click',e=>{
+      e.stopPropagation();
+      closeLightbox();
+    });
     document.getElementById('bs-lightbox').addEventListener('click',e=>{
-      if(e.target===document.getElementById('bs-lightbox')||e.target===document.getElementById('bs-lightbox-close'))closeLightbox();
+      if(e.target===document.getElementById('bs-lightbox'))closeLightbox();
     });
     document.addEventListener('keydown',e=>{
-      if(e.key==='Escape'&&document.getElementById('bs-lightbox').classList.contains('open')){closeLightbox();}
+      if(e.key==='Escape'&&document.getElementById('bs-lightbox').classList.contains('open')){
+        e.stopPropagation();
+        closeLightbox();
+      }
     });
   }
 
