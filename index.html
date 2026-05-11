@@ -305,6 +305,38 @@ body.light .et-sep{background:#ddd;}
 .et-select{font-size:11px;background:#252525;border:1px solid rgba(255,255,255,0.12);color:#aaa;border-radius:4px;padding:2px 6px;cursor:pointer;font-family:inherit;}
 body.light .et-select{background:#f0ede8;border-color:#ddd;color:#555;}
 
+/* ── COLOR PICKER POPUP ── */
+.et-color-popup{position:fixed;z-index:9999;background:#1e1e1e;border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:8px;display:grid;grid-template-columns:repeat(7,22px);gap:4px;box-shadow:0 8px 28px rgba(0,0,0,0.7);}
+body.light .et-color-popup{background:#fff;border-color:#ddd;box-shadow:0 8px 24px rgba(0,0,0,0.18);}
+.et-color-swatch{width:22px;height:22px;border-radius:4px;border:none;cursor:pointer;transition:transform .1s;}
+.et-color-swatch:hover{transform:scale(1.25);}
+
+/* ── BRAINSTORM TEXT-CARD MINI TOOLBAR ── */
+.bs-text-toolbar{display:flex;align-items:center;gap:1px;padding:3px 6px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;flex-wrap:wrap;background:rgba(0,0,0,0.18);}
+body.light .bs-text-toolbar{border-color:#eee;background:rgba(0,0,0,0.04);}
+.bs-tet-btn{width:22px;height:22px;border:none;background:transparent;color:#666;cursor:pointer;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;font-family:inherit;flex-shrink:0;}
+.bs-tet-btn:hover{background:rgba(255,255,255,0.12);color:#ddd;}
+body.light .bs-tet-btn{color:#aaa;}
+body.light .bs-tet-btn:hover{background:rgba(0,0,0,0.08);color:#444;}
+.bs-tet-sep{width:1px;height:14px;background:rgba(255,255,255,0.1);margin:0 2px;flex-shrink:0;}
+body.light .bs-tet-sep{background:#ddd;}
+.bs-tet-select{font-size:10px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:#888;border-radius:3px;padding:1px 4px;cursor:pointer;font-family:inherit;max-width:72px;}
+body.light .bs-tet-select{background:#f0ede8;border-color:#ddd;color:#555;}
+.bs-text-editor{flex:1;padding:6px 10px 10px;outline:none;font-size:12px;line-height:1.65;color:#ccc;overflow-y:auto;min-height:50px;word-break:break-word;caret-color:#3b82f6;}
+body.light .bs-text-editor{color:#333;}
+.bs-text-editor:empty::before{content:attr(data-placeholder);color:#333;pointer-events:none;}
+body.light .bs-text-editor:empty::before{color:#ccc;}
+.bs-text-editor ul,.bs-text-editor ol{padding-left:18px;margin:3px 0;}
+.bs-text-editor table{border-collapse:collapse;width:100%;margin:4px 0;font-size:11px;}
+.bs-text-editor td,.bs-text-editor th{border:1px solid rgba(255,255,255,0.15);padding:3px 5px;min-width:36px;}
+body.light .bs-text-editor td,body.light .bs-text-editor th{border-color:#ddd;}
+.bs-text-editor th{background:rgba(255,255,255,0.06);font-weight:600;}
+body.light .bs-text-editor th{background:rgba(0,0,0,0.04);}
+.bs-text-editor h2{font-size:14px;font-weight:700;margin:5px 0 2px;color:#fff;}
+body.light .bs-text-editor h2{color:#111;}
+.bs-text-editor blockquote{border-left:3px solid #3b82f6;margin:4px 0;padding:2px 8px;color:#888;}
+body.light .bs-text-editor blockquote{color:#666;}
+
 /* ── RICH TEXT EDITOR ── */
 #script-editor-wrap{flex:1;overflow-y:auto;overflow-x:hidden;}
 #script-editor-wrap::-webkit-scrollbar{width:5px;}
@@ -1692,6 +1724,11 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
     <button class="et-btn" id="sp-hr-btn" title="insert divider">—</button>
     <div class="et-sep"></div>
     <button class="et-btn" id="sp-link-frame-btn" title="link to storyboard frame" style="font-size:10px;font-weight:600;color:#3b82f6;">#</button>
+    <div class="et-sep"></div>
+    <button class="et-btn" id="sp-headline-btn" title="headline style" style="font-size:10px;font-weight:700;letter-spacing:.03em;">H</button>
+    <button class="et-btn" id="sp-body-btn" title="body / paragraph" style="font-size:12px;">¶</button>
+    <div class="et-sep"></div>
+    <button class="et-btn" id="sp-color-btn" title="text color" style="font-size:13px;font-weight:700;text-decoration:underline;text-decoration-color:#ef4444;text-underline-offset:2px;">A</button>
     <div class="et-sep"></div>
     <!-- VO sync status -->
     <span id="sp-sync-badge" style="display:none;font-size:9px;background:rgba(59,130,246,0.18);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:1px 7px;font-weight:600;white-space:nowrap;">VO synced</span>
@@ -4686,6 +4723,42 @@ async function exportPDF(){
 $('resize-handle').style.display='none';
 init();
 
+// ── SHARED EDITOR HELPERS ────────────────────────────────────────────────────
+function showEditorColorPicker(anchorEl,callback){
+  document.getElementById('et-color-popup-el')?.remove();
+  const colors=[
+    '#ffffff','#cccccc','#888888','#555555','#000000','#ef4444','#f97316',
+    '#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#f43f5e',
+    '#7f1d1d','#7c2d12','#713f12','#14532d','#1e3a5f','#3b0764','#831843',
+  ];
+  const popup=document.createElement('div');
+  popup.id='et-color-popup-el';
+  popup.className='et-color-popup';
+  colors.forEach(c=>{
+    const sw=document.createElement('button');
+    sw.className='et-color-swatch';
+    sw.style.background=c;
+    if(c==='#ffffff')sw.style.border='1px solid rgba(255,255,255,0.25)';
+    sw.addEventListener('mousedown',e=>{
+      e.preventDefault();e.stopPropagation();
+      popup.remove();
+      callback(c);
+    });
+    popup.appendChild(sw);
+  });
+  document.body.appendChild(popup);
+  const rect=anchorEl.getBoundingClientRect();
+  const pw=popup.offsetWidth||160;
+  let left=rect.left;
+  if(left+pw>window.innerWidth-8)left=window.innerWidth-pw-8;
+  popup.style.top=(rect.bottom+4)+'px';
+  popup.style.left=left+'px';
+  setTimeout(()=>{
+    function outside(e){if(!popup.contains(e.target)){popup.remove();document.removeEventListener('mousedown',outside);}}
+    document.addEventListener('mousedown',outside);
+  },0);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // BRAINSTORM PANEL ENGINE
 // ═══════════════════════════════════════════════════════════════
@@ -4910,16 +4983,24 @@ init();
     const resize=`<div class="bs-resize-handle">${resizeIcon}</div>`;
 
     if(card.type==='text'){
-      const fs=card.fontSize||13;
-      const sizeHeader=`<div class="bs-card-header">
-        <span class="bs-card-type-icon">T</span>
-        <input class="bs-card-title-edit" value="${esc(card.title||'')}" placeholder="text card"/>
-        <div class="bs-text-size-btns">
-          <button class="bs-text-size-btn" data-action="font-down" title="smaller text" style="font-size:10px;font-weight:700;">A</button>
-          <button class="bs-text-size-btn" data-action="font-up" title="larger text" style="font-size:15px;font-weight:700;">A</button>
-        </div>
+      const htmlContent=card.textHtml||(card.text?`<p>${esc(card.text)}</p>`:'');
+      const miniToolbar=`<div class="bs-text-toolbar">
+        <select class="bs-tet-select" data-action="format">
+          <option value="p">normal</option>
+          <option value="h2">headline</option>
+        </select>
+        <div class="bs-tet-sep"></div>
+        <button class="bs-tet-btn" data-action="bold" title="bold"><strong>B</strong></button>
+        <button class="bs-tet-btn" data-action="italic" title="italic"><em>I</em></button>
+        <button class="bs-tet-btn" data-action="underline" title="underline"><u>U</u></button>
+        <div class="bs-tet-sep"></div>
+        <button class="bs-tet-btn" data-action="ul" title="bullet list"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="2" cy="3.5" r="1.2" fill="currentColor"/><line x1="5" y1="3.5" x2="13" y2="3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="2" cy="7" r="1.2" fill="currentColor"/><line x1="5" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+        <button class="bs-tet-btn" data-action="ol" title="numbered list"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><text x="0" y="5" font-size="5" fill="currentColor">1.</text><line x1="5" y1="3.5" x2="13" y2="3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><text x="0" y="9" font-size="5" fill="currentColor">2.</text><line x1="5" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
+        <button class="bs-tet-btn" data-action="table" title="insert table"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2"/><line x1="1" y1="5" x2="13" y2="5" stroke="currentColor" stroke-width="1"/><line x1="1" y1="9" x2="13" y2="9" stroke="currentColor" stroke-width="1"/><line x1="5" y1="5" x2="5" y2="13" stroke="currentColor" stroke-width="1"/><line x1="9" y1="5" x2="9" y2="13" stroke="currentColor" stroke-width="1"/></svg></button>
+        <div class="bs-tet-sep"></div>
+        <button class="bs-tet-btn" data-action="color" title="text color" style="font-weight:700;text-decoration:underline;text-decoration-color:#ef4444;text-underline-offset:2px;">A</button>
       </div>`;
-      return sizeHeader+`<div class="bs-card-body"><textarea class="bs-text-area" placeholder="type your notes…" style="font-size:${fs}px;">${esc(card.text||'')}</textarea></div>`+resize;
+      return header+miniToolbar+`<div class="bs-card-body" style="padding:0;display:flex;flex-direction:column;overflow:hidden;"><div class="bs-text-editor" contenteditable="true" spellcheck="true" data-placeholder="type your notes…">${htmlContent}</div></div>`+resize;
     }
     if(card.type==='image'){
       const img=card.image?`<img src="${card.image}" alt=""/>`:
@@ -5189,12 +5270,72 @@ init();
       titleInput.addEventListener('mousedown',e=>e.stopPropagation());
       titleInput.addEventListener('pointerdown',e=>e.stopPropagation());
     }
-    // Text area
-    const ta=el.querySelector('.bs-text-area');
-    if(ta){
-      ta.addEventListener('input',()=>{card.text=ta.value;bsSave();});
-      ta.addEventListener('mousedown',e=>e.stopPropagation());
-      ta.addEventListener('pointerdown',e=>e.stopPropagation());
+    // Rich text editor (text cards)
+    const textEd=el.querySelector('.bs-text-editor');
+    if(textEd){
+      textEd.addEventListener('input',()=>{card.textHtml=textEd.innerHTML;card.text=textEd.textContent;bsSave();});
+      textEd.addEventListener('mousedown',e=>e.stopPropagation());
+      textEd.addEventListener('pointerdown',e=>e.stopPropagation());
+      textEd.addEventListener('keydown',e=>{
+        if(e.key==='Tab'){
+          e.preventDefault();e.stopPropagation();
+          const sel=window.getSelection();
+          const td=sel.anchorNode?.parentElement?.closest('td,th');
+          if(td){
+            const next=td.nextElementSibling||td.parentElement.nextElementSibling?.cells?.[0];
+            if(next){const r=document.createRange();r.selectNodeContents(next);r.collapse(false);sel.removeAllRanges();sel.addRange(r);}
+          } else {
+            document.execCommand('insertText',false,'    ');
+          }
+        }
+      });
+      // Save selection when editor blurs (needed for toolbar actions)
+      let tetSavedRange=null;
+      textEd.addEventListener('blur',()=>{
+        const sel=window.getSelection();
+        if(sel.rangeCount)tetSavedRange=sel.getRangeAt(0).cloneRange();
+      });
+      function tetRestoreRange(){
+        const sel=window.getSelection();
+        sel.removeAllRanges();
+        if(tetSavedRange)sel.addRange(tetSavedRange);
+      }
+      // Mini toolbar buttons
+      el.querySelectorAll('.bs-tet-btn').forEach(btn=>{
+        btn.addEventListener('mousedown',e=>{
+          e.preventDefault();e.stopPropagation();
+          const action=btn.dataset.action;
+          textEd.focus();
+          if(action==='bold') document.execCommand('bold',false,null);
+          else if(action==='italic') document.execCommand('italic',false,null);
+          else if(action==='underline') document.execCommand('underline',false,null);
+          else if(action==='ul') document.execCommand('insertUnorderedList',false,null);
+          else if(action==='ol') document.execCommand('insertOrderedList',false,null);
+          else if(action==='table'){bsInsertCardTable(textEd);}
+          else if(action==='color'){
+            showEditorColorPicker(btn,color=>{
+              textEd.focus();
+              tetRestoreRange();
+              document.execCommand('foreColor',false,color);
+              card.textHtml=textEd.innerHTML;card.text=textEd.textContent;bsSave();
+            });
+            return;
+          }
+          card.textHtml=textEd.innerHTML;card.text=textEd.textContent;bsSave();
+        });
+      });
+      // Format select
+      const formatSel=el.querySelector('.bs-tet-select[data-action="format"]');
+      if(formatSel){
+        formatSel.addEventListener('mousedown',e=>e.stopPropagation());
+        formatSel.addEventListener('change',()=>{
+          textEd.focus();
+          tetRestoreRange();
+          document.execCommand('formatBlock',false,formatSel.value);
+          formatSel.value='p';
+          card.textHtml=textEd.innerHTML;card.text=textEd.textContent;bsSave();
+        });
+      }
     }
     // CSV live search filter
     if(card.type==='csv'){
@@ -5296,18 +5437,6 @@ init();
         });
       }
     }
-    // Text font-size buttons
-    el.querySelectorAll('.bs-text-size-btn').forEach(btn=>{
-      btn.addEventListener('mousedown',e=>e.stopPropagation());
-      btn.addEventListener('pointerdown',e=>e.stopPropagation());
-      btn.addEventListener('click',e=>{
-        e.stopPropagation();
-        const ta=el.querySelector('.bs-text-area');if(!ta)return;
-        let fs=card.fontSize||13;
-        fs=btn.dataset.action==='font-up'?Math.min(30,fs+2):Math.max(9,fs-2);
-        card.fontSize=fs;ta.style.fontSize=fs+'px';bsSave();
-      });
-    });
     // Drag to move — ONLY from header / section bar (not card body)
     const sectionBar=el.querySelector('.bs-section-bar');
     if(sectionBar){
@@ -6155,6 +6284,12 @@ init();
     });
   }
 
+  function bsInsertCardTable(editor){
+    const html='<table><thead><tr><th>Column 1</th><th>Column 2</th><th>Column 3</th></tr></thead><tbody><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr><tr><td></td><td></td><td></td></tr></tbody></table><p><br></p>';
+    editor.focus();
+    document.execCommand('insertHTML',false,html);
+  }
+
   bsInit();
 })();
 
@@ -6164,8 +6299,8 @@ init();
   // ── helpers ──
   function spEl(id){return document.getElementById(id);}
   function spExecCmd(cmd,val){
-    document.execCommand(cmd,false,val||null);
     spEl('sp-editor').focus();
+    document.execCommand(cmd,false,val||null);
     spSyncOut();
   }
   function spSyncOut(){
@@ -6533,19 +6668,49 @@ would you like to auto-create storyboard frames — one per paragraph?`;
   function spInit(){
     const ed=spEl('sp-editor');
 
-    // toolbar buttons
-    spEl('sp-format-select').addEventListener('change',function(){
-      spExecCmd('formatBlock',this.value);this.value='p';
+    // Save selection when editor loses focus (needed for format select)
+    let spSavedRange=null;
+    ed.addEventListener('blur',()=>{
+      const sel=window.getSelection();
+      if(sel.rangeCount)spSavedRange=sel.getRangeAt(0).cloneRange();
     });
-    spEl('sp-bold-btn').addEventListener('click',()=>spExecCmd('bold'));
-    spEl('sp-italic-btn').addEventListener('click',()=>spExecCmd('italic'));
-    spEl('sp-underline-btn').addEventListener('click',()=>spExecCmd('underline'));
-    spEl('sp-ul-btn').addEventListener('click',()=>spExecCmd('insertUnorderedList'));
-    spEl('sp-ol-btn').addEventListener('click',()=>spExecCmd('insertOrderedList'));
-    spEl('sp-blockquote-btn').addEventListener('click',spInsertBlockquote);
-    spEl('sp-table-btn').addEventListener('click',spInsertTable);
-    spEl('sp-hr-btn').addEventListener('click',spInsertHR);
-    spEl('sp-link-frame-btn').addEventListener('click',spLinkToFrame);
+    function spRestoreRange(){
+      if(!spSavedRange)return;
+      ed.focus();
+      const sel=window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(spSavedRange);
+    }
+
+    // toolbar buttons — mousedown+preventDefault keeps editor focus/selection
+    spEl('sp-format-select').addEventListener('change',function(){
+      spRestoreRange();
+      spExecCmd('formatBlock',this.value);
+      this.value='p';
+    });
+    [
+      ['sp-bold-btn',()=>spExecCmd('bold')],
+      ['sp-italic-btn',()=>spExecCmd('italic')],
+      ['sp-underline-btn',()=>spExecCmd('underline')],
+      ['sp-ul-btn',()=>spExecCmd('insertUnorderedList')],
+      ['sp-ol-btn',()=>spExecCmd('insertOrderedList')],
+      ['sp-blockquote-btn',spInsertBlockquote],
+      ['sp-table-btn',spInsertTable],
+      ['sp-hr-btn',spInsertHR],
+      ['sp-link-frame-btn',spLinkToFrame],
+      ['sp-headline-btn',()=>spExecCmd('formatBlock','h2')],
+      ['sp-body-btn',()=>spExecCmd('formatBlock','p')],
+    ].forEach(([id,fn])=>{
+      spEl(id).addEventListener('mousedown',e=>{e.preventDefault();fn();});
+    });
+    spEl('sp-color-btn').addEventListener('mousedown',e=>{
+      e.preventDefault();
+      showEditorColorPicker(spEl('sp-color-btn'),color=>{
+        ed.focus();
+        document.execCommand('foreColor',false,color);
+        spSyncOut();
+      });
+    });
 
     // top bar
     // Single import input routes by file extension
