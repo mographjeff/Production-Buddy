@@ -2544,6 +2544,41 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
   <div id="bs-lightbox-label"></div>
 </div>
 
+<!-- ═══ BRAINSTORM OVERLAYS — must live at body level so position:fixed isn't clipped by slide-panel transforms ═══ -->
+
+<!-- Link/embed dialog -->
+<div id="bs-link-dialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:800;align-items:center;justify-content:center;">
+  <div style="background:#1e1e1e;border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:22px;width:420px;max-width:96vw;">
+    <div style="font-size:13px;font-weight:600;color:#eee;margin-bottom:14px;">add link card</div>
+    <div class="modal-label">url</div>
+    <input id="bs-link-url" class="invite-input" placeholder="https://… or YouTube/Vimeo URL" style="width:100%;margin-bottom:10px;"/>
+    <div class="modal-label">title (optional)</div>
+    <input id="bs-link-title" class="invite-input" placeholder="card title" style="width:100%;margin-bottom:16px;"/>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button class="btn" id="bs-link-cancel">cancel</button>
+      <button class="btn btn-primary" id="bs-link-ok">add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Brainstorm context menu -->
+<div id="bs-ctx-menu" style="display:none;position:fixed;background:#222;border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px;z-index:900;min-width:170px;box-shadow:0 6px 24px rgba(0,0,0,0.7);">
+</div>
+
+<!-- Brainstorm card color picker popup -->
+<div id="bs-color-popup" style="display:none;position:fixed;z-index:950;background:#1e1e1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:180px;">
+  <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">card color</div>
+  <div id="bs-color-swatches" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+  <div style="display:flex;align-items:center;gap:7px;">
+    <span style="font-size:10px;color:#555;">custom</span>
+    <input type="color" id="bs-custom-color" value="#3b82f6" style="width:28px;height:22px;border:none;background:transparent;cursor:pointer;padding:0;border-radius:4px;"/>
+    <button id="bs-color-reset" style="flex:1;font-size:10px;padding:3px 7px;border:1px solid rgba(255,255,255,0.12);border-radius:5px;background:transparent;color:#666;cursor:pointer;">reset</button>
+  </div>
+</div>
+
+<!-- Marquee selection box (rendered inside bs-world via JS, this stub kept here for parity) -->
+<div id="bs-marquee" style="display:none;position:absolute;border:1.5px dashed #3b82f6;background:rgba(59,130,246,0.07);pointer-events:none;z-index:50;border-radius:2px;"></div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -6093,6 +6128,11 @@ function showEditorColorPicker(anchorEl,callback){
       document.getElementById('bs-link-dialog').style.display='none';
     });
     document.getElementById('bs-link-url').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('bs-link-ok').click();});
+    document.addEventListener('keydown',e=>{
+      if(e.key==='Escape'&&document.getElementById('bs-link-dialog').style.display==='flex'){
+        document.getElementById('bs-link-dialog').style.display='none';
+      }
+    });
 
     // Zoom controls
     document.getElementById('bs-zoom-in').addEventListener('click',()=>setZoom(viewZoom*1.25));
@@ -8910,40 +8950,5 @@ if(document.readyState==='loading'){
 
 <!-- Project sidebar right-click menu -->
 <div id="proj-ctx-menu"></div>
-
-<!-- ═══ BRAINSTORM OVERLAYS — must live at body level so position:fixed isn't clipped by slide-panel transforms ═══ -->
-
-<!-- Link/embed dialog -->
-<div id="bs-link-dialog" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:800;align-items:center;justify-content:center;">
-  <div style="background:#1e1e1e;border:1px solid rgba(255,255,255,0.16);border-radius:14px;padding:22px;width:420px;max-width:96vw;">
-    <div style="font-size:13px;font-weight:600;color:#eee;margin-bottom:14px;">add link card</div>
-    <div class="modal-label">url</div>
-    <input id="bs-link-url" class="invite-input" placeholder="https://… or YouTube/Vimeo URL" style="width:100%;margin-bottom:10px;"/>
-    <div class="modal-label">title (optional)</div>
-    <input id="bs-link-title" class="invite-input" placeholder="card title" style="width:100%;margin-bottom:16px;"/>
-    <div style="display:flex;justify-content:flex-end;gap:8px;">
-      <button class="btn" id="bs-link-cancel">cancel</button>
-      <button class="btn btn-primary" id="bs-link-ok">add</button>
-    </div>
-  </div>
-</div>
-
-<!-- Brainstorm context menu -->
-<div id="bs-ctx-menu" style="display:none;position:fixed;background:#222;border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px;z-index:900;min-width:170px;box-shadow:0 6px 24px rgba(0,0,0,0.7);">
-</div>
-
-<!-- Brainstorm card color picker popup -->
-<div id="bs-color-popup" style="display:none;position:fixed;z-index:950;background:#1e1e1e;border:1px solid rgba(255,255,255,0.18);border-radius:11px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,0.7);min-width:180px;">
-  <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">card color</div>
-  <div id="bs-color-swatches" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
-  <div style="display:flex;align-items:center;gap:7px;">
-    <span style="font-size:10px;color:#555;">custom</span>
-    <input type="color" id="bs-custom-color" value="#3b82f6" style="width:28px;height:22px;border:none;background:transparent;cursor:pointer;padding:0;border-radius:4px;"/>
-    <button id="bs-color-reset" style="flex:1;font-size:10px;padding:3px 7px;border:1px solid rgba(255,255,255,0.12);border-radius:5px;background:transparent;color:#666;cursor:pointer;">reset</button>
-  </div>
-</div>
-
-<!-- Marquee selection box (rendered inside bs-world via JS, this stub kept here for parity) -->
-<div id="bs-marquee" style="display:none;position:absolute;border:1.5px dashed #3b82f6;background:rgba(59,130,246,0.07);pointer-events:none;z-index:50;border-radius:2px;"></div>
 
 </body></html>
