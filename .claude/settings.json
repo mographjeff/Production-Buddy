@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(/Users/jeff/Library/CloudStorage/Dropbox/Claude/Production Buddy/index.html)",
+            "command": "cd \"/Users/jeff/Library/CloudStorage/Dropbox/Claude/Production Buddy\" && git add index.html && git diff --cached --quiet || (git commit -m \"Auto-save: $(date '+%Y-%m-%d %H:%M')\" && git push) 2>/dev/null || true",
+            "statusMessage": "Pushing to GitHub…"
+          }
+        ]
+      }
+    ]
+  }
+}
