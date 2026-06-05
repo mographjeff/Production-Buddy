@@ -28,9 +28,11 @@ body.light .col-btn.active{background:#111;color:#fff;}
 #save-indicator{font-size:11px;color:#555;white-space:nowrap;transition:color .3s;}
 #save-indicator.saved{color:#4ade80;}
 #save-indicator.saving{color:#facc15;}
+#save-indicator.error{color:#f87171;}
 body.light #save-indicator{color:#bbb;}
 body.light #save-indicator.saved{color:#16a34a;}
 body.light #save-indicator.saving{color:#ca8a04;}
+body.light #save-indicator.error{color:#dc2626;}
 .icon-btn{width:30px;height:30px;border-radius:7px;border:1px solid rgba(255,255,255,0.18);background:transparent;color:#888;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;}
 .icon-btn:hover{background:#2e2e2e;color:#eee;}
 .icon-btn.active-btn{border-color:#3b82f6;color:#3b82f6;}
@@ -2636,7 +2638,7 @@ function cloudSave(state){
         method:'POST',
         body:JSON.stringify({id:SYNC_ROW,data:state,updated_at:new Date().toISOString()})
       });
-    }catch(e){console.warn('cloud save failed',e);}
+    }catch(e){console.warn('cloud save failed',e);setSaveIndicator('error');}
   },1500);
 }
 
@@ -2755,6 +2757,7 @@ function setSaveIndicator(s){
   const el=$('save-indicator');clearTimeout(saveIndicatorTimer);
   if(s==='saving'){el.textContent='saving…';el.className='saving';}
   else if(s==='saved'){el.textContent='saved';el.className='saved';saveIndicatorTimer=setTimeout(()=>{el.textContent='—';el.className='';},2200);}
+  else if(s==='error'){el.textContent='save failed';el.className='error';saveIndicatorTimer=setTimeout(()=>{el.textContent='—';el.className='';},5000);}
   else{el.textContent='—';el.className='';}
 }
 function downloadBackup(){
