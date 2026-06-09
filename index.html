@@ -5544,6 +5544,11 @@ function showEditorColorPicker(anchorEl,callback){
         // Render PDF canvas if needed
         const pdfCanvas=preview.querySelector('.bs-pdf-canvas');
         if(pdfCanvas&&card.fileData)renderPDFCanvas(card,pdfCanvas);
+        // Render docx / font preview if needed
+        const docxBox=preview.querySelector('.bs-docx-preview');
+        if(docxBox&&card.fileData)renderDocxPreview(card,docxBox);
+        const fontBox=preview.querySelector('.bs-font-preview');
+        if(fontBox&&card.fileData)renderFontPreview(card,fontBox);
       }
     }
     // Link play button
