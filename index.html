@@ -2633,7 +2633,13 @@ async function sbFetch(path,opts={}){
     headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates',...(opts.headers||{})}
   });
   if(!res.ok)throw new Error(await res.text());
-  return res.status===204?null:res.json();
+  // Supabase writes (POST/PATCH with Prefer: return=minimal/merge-duplicates) reply
+  // 201/204 with an EMPTY body — calling res.json() on that throws and was surfacing
+  // as a bogus "save failed". Parse defensively: only JSON.parse a non-empty body.
+  if(res.status===204)return null;
+  const txt=await res.text();
+  if(!txt)return null;
+  try{return JSON.parse(txt);}catch(e){return null;}
 }
 
 async function cloudLoad(){
