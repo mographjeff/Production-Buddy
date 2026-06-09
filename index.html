@@ -5281,6 +5281,14 @@ function showEditorColorPicker(anchorEl,callback){
     if(/^(ttf|otf|woff2?|woff)$/.test(ext))return 'font';
     return 'other';
   }
+  // Default card size by file kind: compact icon for non-previewable, taller for previews
+  function bsFileCardSize(filename){
+    const kind=bsFileKind((filename||'').split('.').pop().toLowerCase());
+    if(kind==='other')return{w:180,h:104};
+    if(kind==='docx')return{w:240,h:215};
+    if(kind==='font')return{w:240,h:165};
+    return{w:220,h:180}; // image / pdf
+  }
   function dataURLToArrayBuffer(dataURL){
     const b64=(dataURL||'').split(',')[1]||'';
     const bin=atob(b64);
