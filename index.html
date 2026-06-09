@@ -2742,15 +2742,24 @@ function loadFromBoard(){
   if(window.bsLoadFromBoard)window.bsLoadFromBoard();
 }
 function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFrameId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
+function stripImages(state){
+  return{...state,boards:state.boards.map(b=>({...b,frames:b.frames.map(f=>({...f,image:null,annLayer:null}))}))};
+}
 function autoSave(){
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
   autoSaveTimer=setTimeout(()=>{
     try{
       const state=getState();
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+      const json=JSON.stringify(state);
+      try{
+        localStorage.setItem(STORAGE_KEY,json);
+      }catch(quota){
+        // localStorage full (likely large images) — save without image data
+        localStorage.setItem(STORAGE_KEY,JSON.stringify(stripImages(state)));
+      }
       cloudSave(state);
       setSaveIndicator('saved');
-    }catch(e){setSaveIndicator('error');}
+    }catch(e){console.error('save failed',e);setSaveIndicator('error');}
   },700);
 }
 function setSaveIndicator(s){
