@@ -6705,34 +6705,71 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     }catch(err){showToast('docx import failed');console.error(err);}
   }
 
-  // ── PDF import ──
+  // ── PDF import — extract selectable text as editable paragraphs ──
+  // (the original PDF can still be kept as a file card in the brainstorm tab)
+  function spEscHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  // Reconstruct paragraphs from pdf.js text items: group items into lines by
+  // y-position, then merge lines into paragraphs based on vertical gaps.
+  function spPdfItemsToParagraphs(items){
+    const its=items.filter(i=>i&&typeof i.str==='string');
+    if(!its.length)return[];
+    const lines=[];
+    let cur=null;
+    its.forEach(it=>{
+      const x=it.transform[4], y=it.transform[5];
+      const h=Math.abs(it.transform[3])||Math.abs(it.height)||10;
+      if(cur&&Math.abs(y-cur.y)<=Math.max(2,h*0.5)){
+        const gap=x-cur.endX;
+        if(gap>h*0.3&&!/\s$/.test(cur.text)&&it.str&&!/^\s/.test(it.str))cur.text+=' ';
+        cur.text+=it.str;
+        cur.endX=x+(it.width||0);
+        cur.h=Math.max(cur.h,h);
+      }else{
+        if(cur)lines.push(cur);
+        cur={y,endX:x+(it.width||0),text:it.str,h};
+      }
+    });
+    if(cur)lines.push(cur);
+    const paras=[];
+    let buf='';let prevY=null,prevH=null;
+    lines.forEach(ln=>{
+      const txt=ln.text.replace(/\s+/g,' ').trim();
+      if(prevY!==null){
+        const gap=prevY-ln.y;
+        const lineH=prevH||ln.h||12;
+        if(gap>lineH*1.6){if(buf.trim())paras.push(buf.trim());buf='';}
+      }
+      if(txt){
+        if(/[-‐]$/.test(buf))buf=buf.replace(/[-‐]$/,'')+txt; // join hyphenated word
+        else buf+=(buf?' ':'')+txt;
+      }
+      prevY=ln.y;prevH=ln.h;
+    });
+    if(buf.trim())paras.push(buf.trim());
+    return paras.filter(p=>p.length);
+  }
   async function spHandlePDFImport(e){
     const file=e.target.files[0];if(!file)return;
     e.target.value='';
-    showToast('rendering pdf…');
+    showToast('extracting text from pdf…');
     try{
       const arrayBuffer=await file.arrayBuffer();
       const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
       const editor=spEl('sp-editor');
-      editor.innerHTML='';
+      let html='';
       for(let pageNum=1;pageNum<=pdf.numPages;pageNum++){
         const page=await pdf.getPage(pageNum);
-        const scale=2.0;
-        const viewport=page.getViewport({scale});
-        const canvas=document.createElement('canvas');
-        const ctx=canvas.getContext('2d');
-        canvas.width=viewport.width;canvas.height=viewport.height;
-        await page.render({canvasContext:ctx,viewport}).promise;
-        const img=document.createElement('img');
-        img.src=canvas.toDataURL('image/jpeg',0.92);
-        img.style.cssText='max-width:100%;display:block;margin:0 0 4px;';
-        editor.appendChild(img);
+        const tc=await page.getTextContent();
+        const paras=spPdfItemsToParagraphs(tc.items);
+        html+=paras.map(p=>`<p>${spEscHtml(p)}</p>`).join('');
       }
+      if(!html.trim())html='<p>(no selectable text found — this PDF may be scanned or image-only)</p>';
+      editor.innerHTML=html;
       const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
       // keep storyboard script editor in sync
       const sbEd=spEl('script-editor');if(sbEd)sbEd.innerHTML=editor.innerHTML;
-      spUpdateWordCount();autoSave();
-      showToast(`pdf imported (${pdf.numPages} page${pdf.numPages===1?'':'s'})`);
+      spUpdateWordCount();spUpdateVOSync();autoSave();
+      showToast(`pdf imported as editable text (${pdf.numPages} page${pdf.numPages===1?'':'s'})`);
     }catch(err){showToast('pdf import failed');console.error(err);}
   }
 
