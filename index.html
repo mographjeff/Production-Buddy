@@ -2625,7 +2625,9 @@ const LEGACY_KEY='frames_sb_v6'; // migrate old saves
 const SUPABASE_URL='https://qywsemrjhtgtwkekiomw.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF5d3NlbXJqaHRndHdrZWtpb213Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2OTM2NTcsImV4cCI6MjA5MjI2OTY1N30.Np-QgYQH4e8Wi3_FxEd6vuO4JJTqj6xG9omv1zf2-bQ';
 const SYNC_ROW='default';
-const isLocalFile=location.protocol==='file:';
+// Treat file:// AND localhost/127.0.0.1 as "local" so dev servers and previews
+// never read from or write to the shared production cloud row.
+const isLocalFile=location.protocol==='file:'||/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
 async function sbFetch(path,opts={}){
   const res=await fetch(SUPABASE_URL+path,{
