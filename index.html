@@ -637,7 +637,9 @@ body.light .bs-tool-btn.active{background:#3b82f615;border-color:#3b82f630;color
 .bs-btn-label{font-size:10.5px;}
 .bs-divider{width:1px;height:18px;background:rgba(255,255,255,0.1);flex-shrink:0;margin:0 3px;}
 body.light .bs-divider{background:#d8d4cd;}
-#bs-text-fmtbar{display:none;align-items:center;gap:2px;margin-left:2px;}
+#bs-text-fmtbar{display:flex;align-items:center;gap:2px;margin-left:2px;transition:opacity .15s;}
+#bs-text-fmtbar.bs-fmt-inactive{opacity:0.4;}
+#bs-text-fmtbar.bs-fmt-inactive .bs-tool-btn,#bs-text-fmtbar.bs-fmt-inactive #bs-fmt-select{cursor:default;}
 #bs-text-fmtbar .bs-fmt-sep{width:1px;height:16px;background:rgba(255,255,255,0.1);margin:0 3px;flex-shrink:0;}
 body.light #bs-text-fmtbar .bs-fmt-sep{background:#d8d4cd;}
 #bs-text-fmtbar .bs-tool-btn{padding:0 6px;}
