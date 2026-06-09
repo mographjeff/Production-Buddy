@@ -5128,18 +5128,23 @@ function showEditorColorPicker(anchorEl,callback){
     if(card.type==='file'){
       const ext=(card.filename||'').split('.').pop().toLowerCase();
       const icon=fileIcon(ext);
-      const isImgExt=/^(gif|png|jpe?g|webp|svg|bmp|tiff?)$/.test(ext);
-      const isPDF=ext==='pdf';
+      const kind=bsFileKind(ext);
       let previewInner='';
-      if(isImgExt&&card.fileData){
+      if(kind==='image'&&card.fileData){
         previewInner=`<img src="${card.fileData}" alt=""/>`;
-      }else if(isPDF&&card.fileData){
+      }else if(kind==='pdf'&&card.fileData){
         previewInner=`<canvas class="bs-pdf-canvas" data-cardid="${card.id}"></canvas>`;
+      }else if(kind==='docx'){
+        previewInner=`<div class="bs-docx-preview" data-cardid="${card.id}">${card.fileData?'<div class="bs-docx-loading">loading preview…</div>':'<div class="bs-docx-loading">drop a .docx to preview</div>'}</div>`;
+      }else if(kind==='font'){
+        previewInner=`<div class="bs-font-preview" data-cardid="${card.id}"><div class="bs-font-big">Ag</div><div class="bs-font-sample">The quick brown fox jumps over the lazy dog 0123456789</div></div>`;
       }else{
+        // non-previewable (zip, ai, psd, sketch, fig, etc.) — show as a file icon
         previewInner=`<div class="bs-file-preview-icon"><span class="bs-file-preview-emoji">${icon}</span><span class="bs-file-preview-ext">.${ext||'file'}</span></div>`;
       }
+      const iconOnly=kind==='other'?' icon-only':'';
       return header+`<div class="bs-card-body">
-        <div class="bs-file-preview" data-open="${card.id}">
+        <div class="bs-file-preview${iconOnly}" data-open="${card.id}">
           ${previewInner}
           <div class="bs-file-preview-hint">double-click to open</div>
         </div>
