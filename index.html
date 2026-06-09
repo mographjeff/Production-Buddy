@@ -5548,11 +5548,17 @@ function showEditorColorPicker(anchorEl,callback){
     selectedCardId=id;
     document.querySelectorAll('.bs-card').forEach(el=>el.classList.remove('selected'));
     if(id){const el=document.getElementById('bsc-'+id);if(el)el.classList.add('selected');}
-    // Show text formatting toolbar only when a text card is selected
+    // Text formatting toolbar is always visible; dim it when no text card is active
     const card=id?bsCards.find(c=>c.id===id):null;
-    const fmtbar=document.getElementById('bs-text-fmtbar');
-    if(fmtbar)fmtbar.style.display=(card&&card.type==='text')?'flex':'none';
     if(!card||card.type!=='text'){bsTextFmt.ed=null;bsTextFmt.card=null;bsTextFmt.savedRange=null;}
+    bsUpdateFmtbarState();
+  }
+  function bsUpdateFmtbarState(){
+    const fmtbar=document.getElementById('bs-text-fmtbar');
+    if(!fmtbar)return;
+    const sel=selectedCardId?bsCards.find(c=>c.id===selectedCardId):null;
+    const active=!!(bsTextFmt.ed||(sel&&sel.type==='text'));
+    fmtbar.classList.toggle('bs-fmt-inactive',!active);
   }
 
   // ── DRAG TO MOVE ──────────────────────────────────────────────
