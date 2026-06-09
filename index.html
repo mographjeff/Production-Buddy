@@ -6267,7 +6267,8 @@ function showEditorColorPicker(anchorEl,callback){
           const card={id:nextCardId++,type:'video',title:file.name,filename:file.name,fileData:null,x:p.x+i*28,y:p.y+i*28,w:280,h:200};
           bsCards.push(card);renderCard(card);loadFileDataToCard(card,file);
         }else{
-          const card={id:nextCardId++,type:'file',title:'',filename:file.name,fileData:null,x:p.x+i*28,y:p.y+i*28,w:220,h:180};
+          const sz=bsFileCardSize(file.name);
+          const card={id:nextCardId++,type:'file',title:'',filename:file.name,fileData:null,x:p.x+i*28,y:p.y+i*28,w:sz.w,h:sz.h};
           bsCards.push(card);renderCard(card);loadFileDataToCard(card,file);
         }
       });
