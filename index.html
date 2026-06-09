@@ -5821,8 +5821,7 @@ function showEditorColorPicker(anchorEl,callback){
       const targetEl=el||document.getElementById('bsc-'+card.id);
       if(targetEl){
         const ext=(card.filename||'').split('.').pop().toLowerCase();
-        const isImgExt=/^(gif|png|jpe?g|webp|svg|bmp|tiff?)$/.test(ext);
-        const isPDF=ext==='pdf';
+        const kind=bsFileKind(ext);
         if(card.type==='audio'){
           const player=targetEl.querySelector('.bs-audio-player');
           if(player){
@@ -5836,11 +5835,21 @@ function showEditorColorPicker(anchorEl,callback){
         }else{
           const preview=targetEl.querySelector('.bs-file-preview');
           if(preview){
-            if(isImgExt){
+            if(kind==='image'){
+              preview.classList.remove('icon-only');
               preview.innerHTML='<img src="'+card.fileData+'" alt=""/><div class="bs-file-preview-hint">double-click to open</div>';
-            }else if(isPDF){
+            }else if(kind==='pdf'){
+              preview.classList.remove('icon-only');
               preview.innerHTML='<canvas class="bs-pdf-canvas" data-cardid="'+card.id+'"></canvas><div class="bs-file-preview-hint">double-click to open</div>';
               renderPDFCanvas(card,preview.querySelector('canvas'));
+            }else if(kind==='docx'){
+              preview.classList.remove('icon-only');
+              preview.innerHTML='<div class="bs-docx-preview" data-cardid="'+card.id+'"><div class="bs-docx-loading">loading preview…</div></div><div class="bs-file-preview-hint">double-click to open</div>';
+              renderDocxPreview(card,preview.querySelector('.bs-docx-preview'));
+            }else if(kind==='font'){
+              preview.classList.remove('icon-only');
+              preview.innerHTML='<div class="bs-font-preview" data-cardid="'+card.id+'"><div class="bs-font-big">Ag</div><div class="bs-font-sample">The quick brown fox jumps over the lazy dog 0123456789</div></div><div class="bs-file-preview-hint">double-click to open</div>';
+              renderFontPreview(card,preview.querySelector('.bs-font-preview'));
             }
           }
         }
