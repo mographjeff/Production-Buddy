@@ -5256,8 +5256,50 @@ function showEditorColorPicker(anchorEl,callback){
   }
 
   function fileIcon(ext){
-    const map={pdf:'📕',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',ppt:'📋',pptx:'📋',mp4:'🎬',mov:'🎬',mp3:'🎵',wav:'🎵',zip:'📦',ai:'🎨',psd:'🎨',fig:'🎨',sketch:'🎨',png:'🖼',jpg:'🖼',jpeg:'🖼',gif:'🖼',svg:'🖼'};
+    const map={pdf:'📕',doc:'📝',docx:'📝',xls:'📊',xlsx:'📊',ppt:'📋',pptx:'📋',mp4:'🎬',mov:'🎬',mp3:'🎵',wav:'🎵',zip:'📦',ai:'🎨',psd:'🎨',fig:'🎨',sketch:'🎨',ttf:'🔤',otf:'🔤',woff:'🔤',woff2:'🔤',png:'🖼',jpg:'🖼',jpeg:'🖼',gif:'🖼',svg:'🖼'};
     return map[ext]||'📄';
+  }
+  // Which file types can show a visual preview vs. just a file icon
+  function bsFileKind(ext){
+    if(/^(gif|png|jpe?g|webp|svg|bmp|tiff?)$/.test(ext))return 'image';
+    if(ext==='pdf')return 'pdf';
+    if(ext==='docx')return 'docx';
+    if(/^(ttf|otf|woff2?|woff)$/.test(ext))return 'font';
+    return 'other';
+  }
+  function dataURLToArrayBuffer(dataURL){
+    const b64=(dataURL||'').split(',')[1]||'';
+    const bin=atob(b64);
+    const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    return arr.buffer;
+  }
+  // Render a text snippet of a .docx into the card preview (via mammoth)
+  function renderDocxPreview(card,box){
+    if(!box||!card.fileData||typeof mammoth==='undefined')return;
+    try{
+      mammoth.convertToHtml({arrayBuffer:dataURLToArrayBuffer(card.fileData)}).then(res=>{
+        const tmp=document.createElement('div');tmp.innerHTML=res.value||'';
+        const txt=(tmp.textContent||'').replace(/\s+/g,' ').trim();
+        box.innerHTML=txt
+          ?`<div class="bs-docx-page">${esc(txt.slice(0,700))}${txt.length>700?'…':''}</div>`
+          :'<div class="bs-docx-loading">empty document</div>';
+      }).catch(()=>{box.innerHTML='<div class="bs-docx-loading">preview unavailable</div>';});
+    }catch(e){box.innerHTML='<div class="bs-docx-loading">preview unavailable</div>';}
+  }
+  // Load a font file via the CSS Font Loading API and apply it to the sample text
+  let bsFontSeq=0;
+  function renderFontPreview(card,box){
+    if(!box||!card.fileData)return;
+    const fam='bsfont-'+card.id+'-'+(bsFontSeq++);
+    try{
+      const ff=new FontFace(fam,`url(${card.fileData})`);
+      ff.load().then(loaded=>{
+        document.fonts.add(loaded);
+        box.style.fontFamily=`'${fam}', sans-serif`;
+        box.classList.add('loaded');
+      }).catch(()=>{box.classList.add('bs-font-failed');});
+    }catch(e){box.classList.add('bs-font-failed');}
   }
 
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
