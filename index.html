@@ -5387,8 +5387,14 @@ function showEditorColorPicker(anchorEl,callback){
     // Rich text editor (text cards)
     const textEd=el.querySelector('.bs-text-editor');
     if(textEd){
-      // Track in module-level bsTextFmt so the menu-bar toolbar can reach it
-      textEd.addEventListener('focus',()=>{bsTextFmt.ed=textEd;bsTextFmt.card=card;});
+      // Track in module-level bsTextFmt so the menu-bar toolbar can reach it.
+      // Also select the card so the (always-visible) format bar activates and
+      // targets this editor — needed when clicking into an existing card.
+      textEd.addEventListener('focus',()=>{
+        bsTextFmt.ed=textEd;bsTextFmt.card=card;
+        if(selectedCardId!==card.id)selectCard(card.id);
+        bsUpdateFmtbarState();
+      });
       textEd.addEventListener('blur',()=>{
         const sel=window.getSelection();
         if(sel.rangeCount)bsTextFmt.savedRange=sel.getRangeAt(0).cloneRange();
