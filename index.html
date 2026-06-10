@@ -3790,6 +3790,86 @@ async function extractVOAndCreateFrames(arrayBuffer){
   showToast(`created ${newFrames.length} frames from VO text`);
 }
 
+// ── STORYBOARD IMPORT ───────────────────────────────────────────────────────
+// Import a storyboard (PDF or Word): pull the images into frames with the
+// corresponding text below each. PDFs → one frame per page (page rendered as the
+// frame image + any selectable text as VO). Word → one frame per image, captioned
+// from the same table row / following paragraph.
+async function handleStoryboardImport(e){
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  e.target.value='';
+  const b=activeBoard();if(!b)return;
+  try{
+    let frames=[];
+    if(/\.pdf$/i.test(file.name)){
+      showToast('importing storyboard pdf…');
+      frames=await framesFromStoryboardPDF(await file.arrayBuffer());
+    }else if(/\.docx$/i.test(file.name)){
+      showToast('importing storyboard…');
+      frames=await framesFromStoryboardDocx(await file.arrayBuffer());
+    }else{showToast('choose a .pdf or .docx file');return;}
+    if(!frames.length){showToast('no frames found in that file');return;}
+    applyImportedFrames(b,frames);
+    showToast(`storyboard imported — ${frames.length} frame${frames.length===1?'':'s'}`);
+  }catch(err){showToast('storyboard import failed');console.error(err);}
+}
+async function framesFromStoryboardPDF(arrayBuffer){
+  const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+  const frames=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const base=page.getViewport({scale:1});
+    // render at ~1280px wide to keep the saved image a reasonable size
+    const scale=Math.min(2,Math.max(0.5,1280/base.width));
+    const vp=page.getViewport({scale});
+    const canvas=document.createElement('canvas');
+    canvas.width=vp.width;canvas.height=vp.height;
+    await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+    const image=canvas.toDataURL('image/jpeg',0.82);
+    const tc=await page.getTextContent();
+    const txt=tc.items.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim();
+    const f=makeFrame();f.image=image;f.voiceOver=txt;
+    frames.push(f);
+  }
+  return frames;
+}
+async function framesFromStoryboardDocx(arrayBuffer){
+  const result=await mammoth.convertToHtml({arrayBuffer},{
+    convertImage:mammoth.images.imgElement(function(image){
+      return image.read('base64').then(function(b64){return{src:'data:'+image.contentType+';base64,'+b64};});
+    })
+  });
+  const tmp=document.createElement('div');tmp.innerHTML=result.value||'';
+  const frames=[];
+  Array.from(tmp.querySelectorAll('img')).forEach(img=>{
+    let caption='';
+    const cell=img.closest('td,th');
+    if(cell){
+      const row=cell.closest('tr');
+      if(row){
+        caption=Array.from(row.children).filter(c=>c!==cell)
+          .map(c=>c.textContent.trim()).filter(Boolean).join(' — ');
+      }
+    }else{
+      const para=img.closest('p');
+      const next=para&&para.nextElementSibling;
+      if(next)caption=next.textContent.trim();
+    }
+    const f=makeFrame();f.image=img.getAttribute('src');f.voiceOver=caption;
+    frames.push(f);
+  });
+  return frames;
+}
+function applyImportedFrames(b,frames){
+  const allEmpty=b.frames.every(f=>!f.image&&!f.videoName&&!(f.voiceOver||'').trim()&&!(f.action||'').trim());
+  let mode='replace';
+  if(!allEmpty){
+    mode=confirm(`Replace the ${b.frames.length} existing frame(s) with the ${frames.length} imported frame(s)?\n\nOK = replace  ·  Cancel = add to the end`)?'replace':'append';
+  }
+  b.frames=mode==='replace'?frames:b.frames.concat(frames);
+  renderAll();autoSave();
+}
+
 // ── TABS ──────────────────────────────────────────────────────────────────
 function addBoard(){
   syncToBoard();
