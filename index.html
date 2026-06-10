@@ -6084,6 +6084,71 @@ function showEditorColorPicker(anchorEl,callback){
     addCard({id:nextCardId++,type:'link',title:title||'',url:url,x:p.x,y:p.y,w:240,h:210});
   }
 
+  // ── SHAPE DRAWING (drag on canvas; Shift to constrain) ────────
+  const SHAPE_COLORS=['#3b82f6','#ef4444','#eab308','#10b981','#a855f7','#f97316'];
+  let shapeColorIdx=0;
+  function startShapeDraw(e,kind){
+    e.preventDefault();
+    const start=canvasToWorld(e.clientX,e.clientY);
+    const stroke=SHAPE_COLORS[shapeColorIdx%SHAPE_COLORS.length];
+    // live preview element
+    const ghost=document.createElement('div');
+    ghost.className='bs-card type-shape';
+    ghost.style.position='absolute';
+    world.appendChild(ghost);
+    let cur=null;
+    function onMove(ev){
+      let p=canvasToWorld(ev.clientX,ev.clientY);
+      let dx=p.x-start.x, dy=p.y-start.y;
+      if(ev.shiftKey){
+        if(kind==='arrow'){
+          // snap to 0/45/90°
+          const ang=Math.atan2(dy,dx);
+          const snapped=Math.round(ang/(Math.PI/4))*(Math.PI/4);
+          const len=Math.hypot(dx,dy);
+          dx=Math.cos(snapped)*len; dy=Math.sin(snapped)*len;
+        }else{
+          const m=Math.max(Math.abs(dx),Math.abs(dy));
+          dx=Math.sign(dx||1)*m; dy=Math.sign(dy||1)*m;
+        }
+      }
+      const x=Math.min(start.x,start.x+dx), y=Math.min(start.y,start.y+dy);
+      const w=Math.abs(dx), h=Math.abs(dy);
+      cur={kind,x,y,w:Math.max(2,w),h:Math.max(2,h),stroke,
+        arrowStart:{x:dx<0?1:0,y:dy<0?1:0}};
+      ghost.style.left=cur.x+'px';ghost.style.top=cur.y+'px';
+      ghost.style.width=cur.w+'px';ghost.style.height=cur.h+'px';
+      ghost.innerHTML=buildShapeSVG({type:'shape',shapeKind:kind,w:cur.w,h:cur.h,stroke,arrowStart:cur.arrowStart});
+    }
+    function onUp(){
+      window.removeEventListener('pointermove',onMove);
+      window.removeEventListener('pointerup',onUp);
+      ghost.remove();
+      // ignore tiny accidental drags
+      if(!cur||(cur.w<6&&cur.h<6)){setActiveTool('select');return;}
+      shapeColorIdx++;
+      const card={id:nextCardId++,type:'shape',shapeKind:cur.kind,x:cur.x,y:cur.y,w:cur.w,h:cur.h,
+        stroke:cur.stroke,strokeWidth:2.5,fill:'none',arrowStart:cur.arrowStart};
+      addCard(card);
+      setActiveTool('select');
+    }
+    window.addEventListener('pointermove',onMove);
+    window.addEventListener('pointerup',onUp);
+  }
+  // ── FLOATING TITLE TEXT (click to place, then type) ───────────
+  function placeFloatingText(e){
+    const p=canvasToWorld(e.clientX,e.clientY);
+    const card={id:nextCardId++,type:'ftext',text:'',textHtml:'',x:p.x,y:p.y,w:360,fontSize:34};
+    addCard(card);
+    setActiveTool('select');
+    // focus the new editor for immediate typing
+    setTimeout(()=>{
+      const el=document.getElementById('bsc-'+card.id);
+      const fed=el&&el.querySelector('.bs-ftext-editor');
+      if(fed){el.classList.add('editing');fed.focus();}
+    },0);
+  }
+
   // ── PASTE HANDLER ─────────────────────────────────────────────
   function handlePaste(e){
     const panel=document.getElementById('panel-brainstorm');
