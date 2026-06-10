@@ -5289,7 +5289,60 @@ function showEditorColorPicker(anchorEl,callback){
         <div class="bs-file-name-bar">${esc(card.filename||'video')}</div>
       </div>`+resize;
     }
+    if(card.type==='shape'){
+      return buildShapeSVG(card)+resize;
+    }
+    if(card.type==='ftext'){
+      const htmlContent=card.textHtml||(card.text?esc(card.text):'');
+      const fs=card.fontSize||34;
+      const col=card.color?`color:${card.color};`:'';
+      return `<div class="bs-ftext-editor" contenteditable="true" spellcheck="true" data-placeholder="Title…" style="font-size:${fs}px;${col}">${htmlContent}</div>`+resize;
+    }
     return header+resize;
+  }
+
+  // ── SHAPE RENDERING (rect / ellipse / arrow) ──────────────────
+  function buildShapeSVG(card){
+    const w=Math.max(2,card.w||defaultW('shape')), h=Math.max(2,card.h||defaultH('shape'));
+    return `<svg class="bs-shape-svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${buildShapeInner(card)}</svg>`;
+  }
+  function buildShapeInner(card){
+    const w=Math.max(2,card.w||defaultW('shape')), h=Math.max(2,card.h||defaultH('shape'));
+    const stroke=card.stroke||'#3b82f6';
+    const sw=card.strokeWidth||2.5;
+    const fill=card.fill||'none';
+    const pad=sw+1.5;
+    if(card.shapeKind==='ellipse'){
+      const hit=`<ellipse class="bs-shape-hit" cx="${w/2}" cy="${h/2}" rx="${Math.max(1,w/2-pad)}" ry="${Math.max(1,h/2-pad)}" fill="${fill==='none'?'transparent':fill}" stroke="transparent" stroke-width="14"/>`;
+      const sh=`<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.max(1,w/2-pad)}" ry="${Math.max(1,h/2-pad)}" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+      return hit+sh;
+    }
+    if(card.shapeKind==='arrow'){
+      const s=card.arrowStart||{x:0,y:0};
+      const x1=s.x?w-pad:pad, y1=s.y?h-pad:pad;
+      const x2=s.x?pad:w-pad, y2=s.y?pad:h-pad;
+      const ang=Math.atan2(y2-y1,x2-x1);
+      const head=Math.max(9,sw*4);
+      const hx1=x2+head*Math.cos(ang+Math.PI*0.83), hy1=y2+head*Math.sin(ang+Math.PI*0.83);
+      const hx2=x2+head*Math.cos(ang-Math.PI*0.83), hy2=y2+head*Math.sin(ang-Math.PI*0.83);
+      const hit=`<line class="bs-shape-hit" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="transparent" stroke-width="16"/>`;
+      const line=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${stroke}" stroke-width="${sw}" stroke-linecap="round"/>`;
+      const headEl=`<polygon points="${x2},${y2} ${hx1},${hy1} ${hx2},${hy2}" fill="${stroke}"/>`;
+      return hit+line+headEl;
+    }
+    // rect (default)
+    const hit=`<rect class="bs-shape-hit" x="${pad}" y="${pad}" width="${Math.max(1,w-2*pad)}" height="${Math.max(1,h-2*pad)}" rx="3" fill="${fill==='none'?'transparent':fill}" stroke="transparent" stroke-width="14"/>`;
+    const sh=`<rect x="${pad}" y="${pad}" width="${Math.max(1,w-2*pad)}" height="${Math.max(1,h-2*pad)}" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+    return hit+sh;
+  }
+  function updateShapeSVG(card,el){
+    const svg=el.querySelector('.bs-shape-svg');
+    if(!svg)return;
+    const w=Math.max(2,card.w||defaultW('shape')), h=Math.max(2,card.h||defaultH('shape'));
+    svg.setAttribute('width',w);svg.setAttribute('height',h);
+    svg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+    svg.innerHTML=buildShapeInner(card);
+    bindShapeHit(card,el);
   }
 
   function buildLinkEmbed(card){
