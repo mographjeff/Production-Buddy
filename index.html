@@ -6284,7 +6284,7 @@ function showEditorColorPicker(anchorEl,callback){
 
     // Space key → hand temporarily
     document.addEventListener('keydown',e=>{
-      if(document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA')return;
+      if(document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='TEXTAREA'||document.activeElement.isContentEditable)return;
       const panel=document.getElementById('panel-brainstorm');
       if(!panel||!panel.classList.contains('active'))return;
       if(e.code==='Space'&&!spaceDown){
