@@ -5723,11 +5723,54 @@ function showEditorColorPicker(anchorEl,callback){
       if(selectedCardIds.size>0){selectedCardIds.clear();document.querySelectorAll('.bs-card.multi-selected').forEach(c=>c.classList.remove('multi-selected'));}
       selectCard(card.id);
     });
+    // Shape cards — drag from the (fat invisible) hit outline
+    if(card.type==='shape'){
+      bindShapeHit(card,el);
+    }
+    // Floating text — click to edit, drag to move (when not editing)
+    if(card.type==='ftext'){
+      const fed=el.querySelector('.bs-ftext-editor');
+      if(fed){
+        fed.addEventListener('input',()=>{card.textHtml=fed.innerHTML;card.text=fed.textContent;bsSave();});
+        fed.addEventListener('focus',()=>{el.classList.add('editing');selectCard(card.id);});
+        fed.addEventListener('blur',()=>{el.classList.remove('editing');});
+        fed.addEventListener('pointerdown',e=>{
+          if(el.classList.contains('editing')){e.stopPropagation();return;} // already editing: place caret
+          // not editing: decide click-to-edit vs drag-to-move
+          e.preventDefault();
+          const sx=e.clientX,sy=e.clientY;let moved=false;
+          const mv=ev=>{if(Math.abs(ev.clientX-sx)>4||Math.abs(ev.clientY-sy)>4)moved=true;};
+          const up=()=>{
+            window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);
+            if(!moved){fed.focus();
+              // place caret at end
+              const r=document.createRange();r.selectNodeContents(fed);r.collapse(false);
+              const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);
+            }
+          };
+          window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);
+          selectCard(card.id);
+          startCardDrag(e,card,el);
+        });
+      }
+    }
     // Resize handle
     const rh=el.querySelector('.bs-resize-handle');
     if(rh){
       rh.addEventListener('pointerdown',e=>{e.stopPropagation();startCardResize(e,card,el);});
     }
+  }
+
+  // Bind drag/select to a shape's invisible fat hit outline
+  function bindShapeHit(card,el){
+    el.querySelectorAll('.bs-shape-hit').forEach(hit=>{
+      hit.addEventListener('pointerdown',e=>{
+        if(['rect','ellipse','arrow','ftext'].includes(activeTool))return; // drawing a new shape
+        e.stopPropagation();
+        selectCard(card.id);
+        startCardDrag(e,card,el);
+      });
+    });
   }
 
   function selectCard(id){
