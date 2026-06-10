@@ -5735,6 +5735,7 @@ function showEditorColorPicker(anchorEl,callback){
         fed.addEventListener('focus',()=>{el.classList.add('editing');selectCard(card.id);});
         fed.addEventListener('blur',()=>{el.classList.remove('editing');});
         fed.addEventListener('pointerdown',e=>{
+          if(['rect','ellipse','arrow','ftext'].includes(activeTool))return; // drawing a new object
           if(el.classList.contains('editing')){e.stopPropagation();return;} // already editing: place caret
           // not editing: decide click-to-edit vs drag-to-move
           e.preventDefault();
