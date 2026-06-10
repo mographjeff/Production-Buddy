@@ -5163,8 +5163,8 @@ function showEditorColorPicker(anchorEl,callback){
       if(!card.cardBg)el.style.borderColor=barColor;
     }
   }
-  function defaultW(type){return{text:220,image:240,link:240,file:200,section:280,audio:220,video:280,palette:240,csv:360}[type]||200;}
-  function defaultH(type){return{text:120,image:180,link:200,file:72,section:70,audio:110,video:190,palette:300,csv:300}[type]||120;}
+  function defaultW(type){return{text:220,image:240,link:240,file:200,section:280,audio:220,video:280,palette:240,csv:360,shape:160,ftext:320}[type]||200;}
+  function defaultH(type){return{text:120,image:180,link:200,file:72,section:70,audio:110,video:190,palette:300,csv:300,shape:120,ftext:60}[type]||120;}
 
   function buildCardHTML(card){
     const dragIcon=`<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="3" cy="3" r="1" fill="currentColor"/><circle cx="7" cy="3" r="1" fill="currentColor"/><circle cx="3" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>`;
