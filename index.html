@@ -5134,7 +5134,8 @@ function showEditorColorPicker(anchorEl,callback){
     el.style.left=card.x+'px';
     el.style.top=card.y+'px';
     el.style.width=(card.w||defaultW(card.type))+'px';
-    el.style.height=(card.h||defaultH(card.type))+'px';
+    // floating text auto-grows with its content (no fixed height)
+    el.style.height=card.type==='ftext'?'auto':(card.h||defaultH(card.type))+'px';
     el.classList.toggle('selected',card.id===selectedCardId);
     // apply card color
     applyCardColor(el,card);
