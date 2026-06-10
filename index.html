@@ -6411,6 +6411,30 @@ function showEditorColorPicker(anchorEl,callback){
     document.getElementById('bs-add-text').addEventListener('click',addTextCard);
     document.getElementById('bs-add-section').addEventListener('click',addSectionCard);
 
+    // Shapes dropdown — pick rect / ellipse / arrow, then drag on canvas
+    const shapeBtn=document.getElementById('bs-add-shape');
+    const shapeDrop=document.getElementById('bs-shape-dropdown');
+    shapeBtn.addEventListener('click',e=>{
+      e.stopPropagation();
+      shapeDrop.classList.toggle('open');
+    });
+    shapeDrop.querySelectorAll('.bs-shape-opt').forEach(opt=>{
+      opt.addEventListener('click',e=>{
+        e.stopPropagation();
+        shapeDrop.classList.remove('open');
+        setActiveTool(opt.dataset.shape); // 'rect' | 'ellipse' | 'arrow'
+        showToast('drag on the canvas to draw — hold Shift to constrain');
+      });
+    });
+    document.addEventListener('click',e=>{
+      if(!document.getElementById('bs-shape-wrap').contains(e.target))shapeDrop.classList.remove('open');
+    });
+    // Floating title text tool
+    document.getElementById('bs-add-ftext').addEventListener('click',()=>{
+      setActiveTool('ftext');
+      showToast('click on the canvas to place a title');
+    });
+
     // ── Text card formatting bar ──────────────────────────────────────────
     function bsFmtGetEd(){
       // Use tracked editor, or fall back to DOM lookup if focus wasn't fired
