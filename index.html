@@ -5851,11 +5851,13 @@ function showEditorColorPicker(anchorEl,callback){
     bsPushHistory();
     const startX=e.clientX,startY=e.clientY;
     const ow=card.w||defaultW(card.type),oh=card.h||defaultH(card.type);
+    const minW=card.type==='shape'?12:120, minH=card.type==='shape'?12:60;
     function onMove(ev){
-      card.w=Math.max(120,ow+(ev.clientX-startX)/viewZoom);
-      card.h=Math.max(60,oh+(ev.clientY-startY)/viewZoom);
+      card.w=Math.max(minW,ow+(ev.clientX-startX)/viewZoom);
+      card.h=Math.max(minH,oh+(ev.clientY-startY)/viewZoom);
       el.style.width=card.w+'px';
       el.style.height=card.h+'px';
+      if(card.type==='shape')updateShapeSVG(card,el);
     }
     function onUp(){
       bsSave();
