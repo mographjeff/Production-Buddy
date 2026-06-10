@@ -6369,9 +6369,15 @@ function showEditorColorPicker(anchorEl,callback){
   function setActiveTool(t){
     activeTool=t;
     const wrap=document.getElementById('bs-canvas-wrap');
+    const isDraw=['rect','ellipse','arrow','ftext'].includes(t);
     document.getElementById('bs-tool-select').classList.toggle('active',t==='select');
     document.getElementById('bs-tool-hand').classList.toggle('active',t==='hand');
-    wrap.style.cursor=t==='hand'?'grab':'default';
+    const shapeBtn=document.getElementById('bs-add-shape');
+    if(shapeBtn)shapeBtn.classList.toggle('active',['rect','ellipse','arrow'].includes(t));
+    const ftextBtn=document.getElementById('bs-add-ftext');
+    if(ftextBtn)ftextBtn.classList.toggle('active',t==='ftext');
+    wrap.classList.toggle('drawing',isDraw);
+    wrap.style.cursor=t==='hand'?'grab':(isDraw?'crosshair':'default');
   }
 
   function setupToolbar(){
