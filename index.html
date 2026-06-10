@@ -3280,6 +3280,7 @@ async function init(){
     autoSave();showToast('script cleared');
   });
   $('script-file-input').addEventListener('change',handlePDFImport);
+  $('sb-import-input').addEventListener('change',handleStoryboardImport);
   $('tab-add-btn').addEventListener('click',addBoard);
   $('img-picker-cancel').addEventListener('click',closeImgPicker);
   $('img-picker-overlay').addEventListener('click',e=>{if(e.target===$('img-picker-overlay'))closeImgPicker();});
