@@ -6242,6 +6242,15 @@ function showEditorColorPicker(anchorEl,callback){
       hideCtxMenu();
       hideColorPopup();
       const onCanvas=e.target===wrap||e.target===document.getElementById('bs-canvas')||e.target===world||e.target===document.getElementById('bs-marquee');
+      // Drawing tools take priority (draw anywhere, including over cards)
+      if(e.button===0&&['rect','ellipse','arrow'].includes(activeTool)){
+        startShapeDraw(e,activeTool);
+        return;
+      }
+      if(e.button===0&&activeTool==='ftext'){
+        placeFloatingText(e);
+        return;
+      }
       if(e.button===1||(spaceDown&&e.button===0)||(activeTool==='hand'&&e.button===0)){
         isPanning=true;
         startPan(e);
