@@ -3038,8 +3038,10 @@ async function init(){
     try{
       const cloud=await cloudLoad();
       if(cloud){loadState(cloud);loaded=true;showToast('projects loaded from cloud');}
-      else if(AUTH_ENABLED&&authUser){
+      else if(AUTH_ENABLED&&authUser&&(authUser.email||'').toLowerCase()==='jeff@jefferyrussell.com'){
         // First sign-in with an empty account → offer to bring legacy projects over.
+        // Gated to the owner's email so a different first-logging-in user can't
+        // import the old shared 'default' projects into their own account.
         const legacy=await legacyCloudData();
         if(legacy&&confirm('Import your existing Production Buddy projects into this account? This is a one-time copy.')){
           loadState(legacy);loaded=true;autoSave();showToast('projects imported to your account');
