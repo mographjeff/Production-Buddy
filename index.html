@@ -2699,9 +2699,24 @@ async function sbFetch(path,opts={}){
 async function cloudLoad(){
   if(isLocalFile)return null;
   try{
+    // Signed-in mode: read only this user's own row (session token → RLS).
+    if(AUTH_ENABLED&&authUser&&sbClient){
+      const {data,error}=await sbClient.from('prod_buddy_sync').select('data').eq('user_id',authUser.id).maybeSingle();
+      if(error)throw error;
+      return data?data.data:null;
+    }
+    // Legacy/shared mode (no auth): the single 'default' row via the anon key.
     const rows=await sbFetch('/rest/v1/prod_buddy_sync?id=eq.'+SYNC_ROW+'&select=data');
     return rows&&rows.length?rows[0].data:null;
   }catch(e){console.warn('cloud load failed',e);return null;}
+}
+// Read the legacy shared 'default' row directly (anon) — used once to import a
+// user's pre-accounts projects into their own row. Returns null after RLS lockdown.
+async function legacyCloudData(){
+  try{
+    const rows=await sbFetch('/rest/v1/prod_buddy_sync?id=eq.'+SYNC_ROW+'&select=data');
+    return rows&&rows.length?rows[0].data:null;
+  }catch(e){return null;}
 }
 
 let cloudSaveTimer=null;
