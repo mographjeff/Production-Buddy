@@ -2706,14 +2706,23 @@ let cloudSaveTimer=null;
 function cloudSave(state){
   if(isLocalFile)return;
   clearTimeout(cloudSaveTimer);
-  cloudSaveTimer=setTimeout(async()=>{
-    try{
-      await sbFetch('/rest/v1/prod_buddy_sync',{
-        method:'POST',
-        body:JSON.stringify({id:SYNC_ROW,data:state,updated_at:new Date().toISOString()})
-      });
-    }catch(e){console.warn('cloud save failed',e);setSaveIndicator('error');}
-  },1500);
+  cloudSaveTimer=setTimeout(()=>cloudSaveAttempt(state,0),1500);
+}
+async function cloudSaveAttempt(state,tries){
+  try{
+    await sbFetch('/rest/v1/prod_buddy_sync',{
+      method:'POST',
+      body:JSON.stringify({id:SYNC_ROW,data:state,updated_at:new Date().toISOString()})
+    });
+    setSaveIndicator('saved');
+  }catch(e){
+    console.warn('cloud save failed (attempt '+(tries+1)+')',e);
+    // Retry transient failures (network blips, free-tier wake-ups) before
+    // reporting. The work is already safe in localStorage, so a cloud miss is
+    // a sync warning — not the data-loss "save failed" it used to claim.
+    if(tries<2)setTimeout(()=>cloudSaveAttempt(state,tries+1),2000*(tries+1));
+    else setSaveIndicator('cloud-error');
+  }
 }
 
 let boards=[];
