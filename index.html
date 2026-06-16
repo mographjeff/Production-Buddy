@@ -2951,7 +2951,7 @@ function $(id){return document.getElementById(id);}
 //   3) the user_id column + unique index exist on prod_buddy_sync.
 // Enable RLS LAST, after a successful test login + legacy import. While this is
 // false the app behaves exactly as before (shared 'default' row, no login).
-const AUTH_ENABLED=false;
+const AUTH_ENABLED=true;
 let sbClient=null;   // supabase-js client, lazy-loaded only when auth is on
 let authUser=null;   // {id,email} once signed in
 
