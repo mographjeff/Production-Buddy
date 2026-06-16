@@ -6235,13 +6235,20 @@ function showEditorColorPicker(anchorEl,callback){
   function loadImageFileToCard(card,file,el){
     const r=new FileReader();
     r.onload=ev=>{
-      card.image=ev.target.result;
-      const targetEl=el||document.getElementById('bsc-'+card.id);
-      if(targetEl){
-        const wrap=targetEl.querySelector('.bs-img-wrap');
-        if(wrap){wrap.innerHTML='<img src="'+ev.target.result+'" alt=""/><div class="bs-img-drop-overlay">drop image here</div>';}
-      }
-      bsSave();
+      const apply=durl=>{
+        card.image=durl;
+        const targetEl=el||document.getElementById('bsc-'+card.id);
+        if(targetEl){
+          const wrap=targetEl.querySelector('.bs-img-wrap');
+          if(wrap){wrap.innerHTML='<img src="'+durl+'" alt=""/><div class="bs-img-drop-overlay">drop image here</div>';}
+        }
+        bsSave();
+      };
+      const raw=ev.target.result;
+      // Compress photos/PNGs on the way in (GIF/SVG kept as-is) so the canvas
+      // doesn't bloat localStorage and the cloud save with full-resolution images.
+      if(/^data:image\/(gif|svg)/i.test(raw||''))apply(raw);
+      else compressImageDataURL(raw).then(apply);
     };
     r.readAsDataURL(file);
   }
