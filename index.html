@@ -2897,18 +2897,22 @@ function setFrameImageFromFile(frame,file){
 function autoSave(){
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
   autoSaveTimer=setTimeout(()=>{
+    let state;
+    try{state=getState();}catch(e){console.error('save failed',e);setSaveIndicator('error');return;}
+    // localStorage is only a best-effort local cache. When online (and especially
+    // signed in) the cloud is the source of truth, so a FULL local cache must not
+    // report "save failed" — the data is safe in the cloud.
+    let localOK=true;
     try{
-      const state=getState();
-      const json=JSON.stringify(state);
-      try{
-        localStorage.setItem(STORAGE_KEY,json);
-      }catch(quota){
-        // localStorage full (likely large images) — save without image data
-        localStorage.setItem(STORAGE_KEY,JSON.stringify(stripImages(state)));
-      }
-      cloudSave(state);
-      setSaveIndicator('saved');
-    }catch(e){console.error('save failed',e);setSaveIndicator('error');}
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(state));
+    }catch(quota){
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(stripImages(state)));}
+      catch(e2){localOK=false;console.warn('local cache full — relying on cloud save',e2);}
+    }
+    cloudSave(state); // async → sets 'saved' on success, 'cloud-error' after retries
+    // Hard error only if NOTHING persisted: local cache full AND no cloud (local file).
+    if(!localOK&&isLocalFile)setSaveIndicator('error');
+    else setSaveIndicator('saved');
   },700);
 }
 function setSaveIndicator(s){
