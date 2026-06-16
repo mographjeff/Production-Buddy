@@ -2894,6 +2894,29 @@ function setFrameImageFromFile(frame,file){
   };
   r.readAsDataURL(file);
 }
+// One-time maintenance: walk the loaded state and shrink any oversized raster
+// images saved before import-time compression existed (frames, annotation layers,
+// brainstorm cards). Mutates in place; GIF/SVG are skipped to keep animation/vectors.
+async function compressExistingImages(){
+  const THRESHOLD=250*1024; // only touch data URLs larger than ~250KB
+  let touched=0,savedBytes=0;
+  const seen=new Set();
+  async function walk(o){
+    if(!o||typeof o!=='object'||seen.has(o))return;seen.add(o);
+    if(Array.isArray(o)){for(const it of o)await walk(it);return;}
+    for(const k of Object.keys(o)){
+      const v=o[k];
+      if(typeof v==='string'){
+        if(v.length>THRESHOLD&&/^data:image\/(png|jpe?g|webp|bmp)/i.test(v)){
+          const c=await compressImageDataURL(v);
+          if(c&&c.length<v.length){savedBytes+=v.length-c.length;o[k]=c;touched++;}
+        }
+      }else if(v&&typeof v==='object')await walk(v);
+    }
+  }
+  await walk(boards);
+  return {touched,savedBytes};
+}
 function autoSave(){
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
   autoSaveTimer=setTimeout(()=>{
