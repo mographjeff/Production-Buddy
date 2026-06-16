@@ -2819,6 +2819,47 @@ function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFr
 function stripImages(state){
   return{...state,boards:state.boards.map(b=>({...b,frames:b.frames.map(f=>({...f,image:null,annLayer:null}))}))};
 }
+// Shrink an imported image: cap the longest edge at 1600px and re-encode as JPEG.
+// A 12-megapixel phone photo (~6MB of base64) becomes ~200KB, which keeps the
+// whole-project cloud save well under the request-size limit that was surfacing
+// as "save failed" once a board collected a few full-resolution images.
+function compressImageDataURL(dataURL,maxDim=1600,quality=0.82){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;
+      if(!w||!h){resolve(dataURL);return;}
+      const scale=Math.min(1,maxDim/Math.max(w,h));
+      w=Math.round(w*scale);h=Math.round(h*scale);
+      try{
+        const c=document.createElement('canvas');c.width=w;c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        const out=c.toDataURL('image/jpeg',quality);
+        // keep whichever is smaller — a tiny PNG icon can beat a re-encoded JPEG
+        resolve(out&&out.length<dataURL.length?out:dataURL);
+      }catch(e){resolve(dataURL);} // cross-origin taint etc. → keep original
+    };
+    img.onerror=()=>resolve(dataURL); // undecodable (e.g. HEIC) → keep original
+    img.src=dataURL;
+  });
+}
+// Read a dropped/picked file onto a frame, compressing photos on the way in.
+// GIFs (animation) and SVGs (vector) are stored as-is so they aren't flattened.
+function setFrameImageFromFile(frame,file){
+  const r=new FileReader();
+  r.onload=ev=>{
+    const apply=durl=>{
+      frame.image=durl;frame.videoName=null;
+      const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
+      sessionVideoURLs.delete(frame.id);
+      renderAll();autoSave();
+    };
+    const raw=ev.target.result;
+    if(/^data:image\/(gif|svg)/i.test(raw||''))apply(raw);
+    else compressImageDataURL(raw).then(apply);
+  };
+  r.readAsDataURL(file);
+}
 function autoSave(){
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
   autoSaveTimer=setTimeout(()=>{
