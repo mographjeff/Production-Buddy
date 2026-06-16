@@ -3087,6 +3087,20 @@ async function init(){
   if(!loaded){const b=makeBoard('Project 1');boards=[b];activeBoardId=b.id;}
   renderTabs();loadFromBoard();renderAll();
 
+  // One-time cleanup: shrink full-resolution images saved before compression existed.
+  if(loaded&&!isLocalFile&&!localStorage.getItem('pb_img_compress_v1')){
+    try{
+      const r=await compressExistingImages();
+      localStorage.setItem('pb_img_compress_v1','done');
+      if(r.touched){
+        renderAll();
+        if(window.bsLoadFromBoard)window.bsLoadFromBoard();
+        autoSave();
+        showToast('optimized '+r.touched+' image'+(r.touched>1?'s':'')+' · freed '+(Math.round(r.savedBytes/1048576*10)/10)+' MB');
+      }
+    }catch(e){console.warn('image optimize pass failed',e);}
+  }
+
   // ── PANEL TAB + SLIDING PANEL SYSTEM ──────────────────────────────────
   const SP_LAYOUT_KEY='pb_panel_layout_v3';
   const SP_ORDER=['brainstorm','script','storyboard','video-review','deliverables','calendar'];
