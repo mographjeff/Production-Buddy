@@ -2727,10 +2727,18 @@ function cloudSave(state){
 }
 async function cloudSaveAttempt(state,tries){
   try{
-    await sbFetch('/rest/v1/prod_buddy_sync',{
-      method:'POST',
-      body:JSON.stringify({id:SYNC_ROW,data:state,updated_at:new Date().toISOString()})
-    });
+    if(AUTH_ENABLED&&authUser&&sbClient){
+      // Signed-in mode: upsert this user's own row (id=user_id=their uid).
+      const {error}=await sbClient.from('prod_buddy_sync')
+        .upsert({id:authUser.id,user_id:authUser.id,data:state,updated_at:new Date().toISOString()},{onConflict:'id'});
+      if(error)throw error;
+    }else{
+      // Legacy/shared mode: the single 'default' row via the anon key.
+      await sbFetch('/rest/v1/prod_buddy_sync',{
+        method:'POST',
+        body:JSON.stringify({id:SYNC_ROW,data:state,updated_at:new Date().toISOString()})
+      });
+    }
     setSaveIndicator('saved');
   }catch(e){
     console.warn('cloud save failed (attempt '+(tries+1)+')',e);
