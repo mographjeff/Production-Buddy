@@ -2944,14 +2944,107 @@ function loadState(state){
 function $(id){return document.getElementById(id);}
 
 // ── INIT ──────────────────────────────────────────────────────────────────
+// ── ACCOUNTS / AUTH (invite-only Supabase magic-link logins) ────────────────
+// DORMANT until the backend is ready: flip AUTH_ENABLED to true ONLY after
+//   1) Supabase → Authentication → Email provider is ON (signups disabled = invite-only),
+//   2) Site URL + Redirect URL include https://mographjeff.github.io/Production-Buddy/ ,
+//   3) the user_id column + unique index exist on prod_buddy_sync.
+// Enable RLS LAST, after a successful test login + legacy import. While this is
+// false the app behaves exactly as before (shared 'default' row, no login).
+const AUTH_ENABLED=false;
+let sbClient=null;   // supabase-js client, lazy-loaded only when auth is on
+let authUser=null;   // {id,email} once signed in
+
+function loadScript(src){
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');s.src=src;
+    s.onload=resolve;s.onerror=()=>reject(new Error('failed to load '+src));
+    document.head.appendChild(s);
+  });
+}
+// Returns true if the app may proceed to load; false if a login screen was shown.
+async function authInit(){
+  if(!AUTH_ENABLED||isLocalFile)return true; // off, or local preview → no gate
+  try{
+    if(!window.supabase)await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+    sbClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const {data:{session}}=await sbClient.auth.getSession();
+    if(session&&session.user){authUser={id:session.user.id,email:session.user.email};renderAccount();return true;}
+    showLoginGate();
+    return false;
+  }catch(e){
+    console.error('auth init failed',e);
+    showLoginGate('Couldn’t reach the login service — check your connection and reload.');
+    return false;
+  }
+}
+function showLoginGate(msg){
+  if($('auth-gate'))return;
+  const ov=document.createElement('div');ov.id='auth-gate';
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:#0d0d0d;display:flex;align-items:center;justify-content:center;font-family:inherit;';
+  ov.innerHTML='<div style="width:340px;max-width:90vw;text-align:center;color:#ddd;">'
+    +'<div style="font-size:20px;font-weight:500;margin-bottom:6px;">production buddy</div>'
+    +'<div style="font-size:13px;color:#888;margin-bottom:22px;">sign in to your account</div>'
+    +'<input id="auth-email" type="email" placeholder="you@email.com" autocomplete="email" style="width:100%;box-sizing:border-box;padding:11px 13px;background:#1a1a1a;border:1px solid #2c2c2c;border-radius:8px;color:#eee;font-size:14px;outline:none;font-family:inherit;">'
+    +'<button id="auth-send" style="width:100%;margin-top:10px;padding:11px;background:#3b82f6;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;">email me a login link</button>'
+    +'<div id="auth-status" style="font-size:12px;color:#888;margin-top:14px;min-height:16px;line-height:1.5;">'+(msg||'')+'</div></div>';
+  document.body.appendChild(ov);
+  const email=$('auth-email'),btn=$('auth-send'),status=$('auth-status');
+  const submit=async()=>{
+    const addr=(email.value||'').trim();
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)){status.style.color='#f59e0b';status.textContent='Enter a valid email address.';return;}
+    btn.disabled=true;status.style.color='#888';status.textContent='Sending…';
+    const err=await sendMagicLink(addr);
+    if(err){
+      btn.disabled=false;status.style.color='#f87171';
+      status.textContent=/not allowed|signups|not found/i.test(err.message||'')
+        ?'That email isn’t on the invite list yet. Ask the owner to add you.'
+        :('Couldn’t send link: '+(err.message||'unknown error'));
+    }else{
+      status.style.color='#4ade80';status.textContent='Check your inbox for a login link.';
+    }
+  };
+  btn.addEventListener('click',submit);
+  email.addEventListener('keydown',e=>{if(e.key==='Enter')submit();});
+  email.focus();
+}
+async function sendMagicLink(email){
+  const {error}=await sbClient.auth.signInWithOtp({email,options:{shouldCreateUser:false,emailRedirectTo:location.origin+location.pathname}});
+  return error;
+}
+async function signOut(){
+  try{if(sbClient)await sbClient.auth.signOut();}catch(e){}
+  authUser=null;location.reload();
+}
+function renderAccount(){
+  if(!authUser)return;
+  const btn=$('sidebar-account-btn');if(!btn)return;
+  const span=btn.querySelector('span'),av=btn.querySelector('.sidebar-avatar');
+  if(span)span.textContent=authUser.email;
+  if(av)av.textContent=(authUser.email||'?').slice(0,2).toUpperCase();
+  btn.title='click to sign out';
+  btn.onclick=()=>{if(confirm('Sign out of '+authUser.email+'?'))signOut();};
+}
+
 async function init(){
   let loaded=false;
+
+  // Gate on auth when enabled. If not signed in, the login screen is shown and
+  // we stop — the app finishes loading after the user returns signed in.
+  if(!(await authInit()))return;
 
   // Try cloud first (skipped when opened as a local file)
   if(!isLocalFile){
     try{
       const cloud=await cloudLoad();
       if(cloud){loadState(cloud);loaded=true;showToast('projects loaded from cloud');}
+      else if(AUTH_ENABLED&&authUser){
+        // First sign-in with an empty account → offer to bring legacy projects over.
+        const legacy=await legacyCloudData();
+        if(legacy&&confirm('Import your existing Production Buddy projects into this account? This is a one-time copy.')){
+          loadState(legacy);loaded=true;autoSave();showToast('projects imported to your account');
+        }
+      }
     }catch(e){}
   }
 
