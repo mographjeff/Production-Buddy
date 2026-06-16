@@ -2891,7 +2891,8 @@ function setSaveIndicator(s){
   if(s==='saving'){el.textContent='saving…';el.className='saving';}
   else if(s==='saved'){el.textContent='saved';el.className='saved';saveIndicatorTimer=setTimeout(()=>{el.textContent='—';el.className='';},2200);}
   else if(s==='error'){el.textContent='save failed';el.className='error';saveIndicatorTimer=setTimeout(()=>{el.textContent='—';el.className='';},5000);}
-  else{el.textContent='—';el.className='';}
+  else if(s==='cloud-error'){el.textContent='saved locally · cloud sync failed';el.className='warn';el.title='Your work is saved on this device. Cloud backup will retry on the next change.';saveIndicatorTimer=setTimeout(()=>{el.textContent='—';el.className='';el.title='';},6000);}
+  else{el.textContent='—';el.className='';el.title='';}
 }
 function downloadBackup(){
   syncToBoard();
