@@ -4202,9 +4202,7 @@ function renderBoard(){
     fi.style.cssText='position:absolute;width:0;height:0;opacity:0;overflow:hidden;';
     fi.addEventListener('change',e=>{
       const file=e.target.files[0];if(!file)return;fi.value='';
-      const r=new FileReader();
-      r.onload=ev=>{frame.image=ev.target.result;frame.videoName=null;const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);sessionVideoURLs.delete(frame.id);renderAll();autoSave();};
-      r.readAsDataURL(file);
+      setFrameImageFromFile(frame,file);
     });
     imgArea.appendChild(fi);
 
