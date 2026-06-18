@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>production buddy</title>
+<script>try{if(new URLSearchParams(location.search).get('share'))document.documentElement.classList.add('client-share-mode');}catch(e){}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;}
@@ -331,6 +332,81 @@ body.storyboard-version-locked #board{pointer-events:none;opacity:0.6;}
 body.storyboard-version-locked #add-frame-btn{pointer-events:none;opacity:0.3;}
 body.storyboard-version-locked #sb-import-btn,body.storyboard-version-locked #field-wrap,body.storyboard-version-locked #sb-undo,body.storyboard-version-locked #sb-redo{pointer-events:none;opacity:0.35;}
 body.script-version-locked #editor-toolbar,body.script-version-locked .script-topbar .script-actions,body.script-version-locked #sp-editor-toolbar,body.script-version-locked #sp-import-btn,body.script-version-locked #sp-clear-btn{pointer-events:none;opacity:0.4;}
+/* ── PHASE 2 — CLIENT SHARING ── */
+.ver-eye{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:7px;border:1px solid rgba(255,255,255,0.14);background:transparent;color:#777;cursor:pointer;font-family:inherit;font-size:10px;}
+.ver-eye:hover{background:#232323;color:#aaa;}
+.ver-eye.on{border-color:rgba(59,130,246,0.5);color:#6fa8ee;background:rgba(59,130,246,0.1);}
+.ver-eye-lbl{font-size:10px;}
+.ver-eye.sm{padding:3px 5px;border:none;}
+.ver-eye.sm.on{background:transparent;color:#6fa8ee;}
+body.light .ver-eye{border-color:#d6d2cb;color:#999;}
+body.light .ver-eye:hover{background:#efece7;color:#555;}
+#client-share-btn{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:0 11px;height:26px;font-size:11px;font-weight:600;color:#6fa8ee;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.4);border-radius:6px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0;}
+#client-share-btn:hover{background:rgba(59,130,246,0.18);color:#8fbcf0;}
+body.light #client-share-btn{color:#2563eb;background:#eaf1fd;border-color:#bcd4f5;}
+#share-dialog{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;font-family:inherit;}
+.shd-card{width:440px;max-width:92vw;background:#1a1a1a;border:1px solid rgba(255,255,255,0.14);border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+body.light .shd-card{background:#fff;border-color:#e0dcd5;}
+.shd-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.09);font-size:13px;font-weight:600;color:#eee;}
+body.light .shd-head{color:#222;border-color:#eee;}
+.shd-x{background:none;border:none;color:#888;font-size:15px;cursor:pointer;line-height:1;}
+.shd-x:hover{color:#ccc;}
+.shd-summary,.shd-msg{padding:18px;font-size:13px;color:#bbb;line-height:1.6;}
+body.light .shd-summary,body.light .shd-msg{color:#555;}
+.shd-summary strong,.shd-msg strong{color:#fff;}
+body.light .shd-summary strong,body.light .shd-msg strong{color:#111;}
+.shd-err{color:#f0a8a8;}
+.shd-actions{padding:0 18px 18px;display:flex;align-items:center;gap:10px;}
+.shd-btn{padding:8px 14px;border-radius:7px;border:1px solid rgba(255,255,255,0.16);background:transparent;color:#ccc;font-size:12px;cursor:pointer;font-family:inherit;}
+.shd-btn:hover{background:#262626;}
+.shd-btn.primary{background:#3b82f6;border-color:transparent;color:#fff;font-weight:600;}
+.shd-btn.primary:hover{background:#2563eb;}
+body.light .shd-btn{border-color:#d6d2cb;color:#444;}
+.shd-row{display:flex;gap:8px;padding:18px 18px 6px;}
+.shd-row input{flex:1;min-width:0;padding:9px 11px;background:#111;border:1px solid rgba(255,255,255,0.16);border-radius:7px;color:#cfe0f5;font-size:12px;font-family:inherit;}
+body.light .shd-row input{background:#f5f3ef;border-color:#ddd;color:#234;}
+.shd-link-open{font-size:12px;color:#6fa8ee;text-decoration:none;}
+.shd-link-open:hover{text-decoration:underline;}
+.shd-note{padding:2px 18px 18px;font-size:11px;color:#777;line-height:1.5;}
+html.client-share-mode,html.client-share-mode body{background:#0f0f0f!important;}
+html.client-share-mode body>*:not(#client-share-root){display:none!important;}
+#client-share-root{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#ddd;min-height:100vh;}
+.cs-state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:24px;}
+.cs-brandmark{font-size:13px;letter-spacing:.04em;color:#3b82f6;font-weight:600;margin-bottom:6px;}
+.cs-state-msg{font-size:16px;color:#ddd;}
+.cs-state-sub{font-size:13px;color:#888;}
+.cs-wrap{max-width:920px;margin:0 auto;padding:0 20px 60px;}
+.cs-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 0 18px;border-bottom:1px solid rgba(255,255,255,0.09);position:sticky;top:0;background:#0f0f0f;z-index:2;}
+.cs-brand{display:flex;align-items:center;gap:11px;}
+.cs-logo{width:9px;height:9px;border-radius:50%;background:#3b82f6;flex-shrink:0;}
+.cs-title{font-size:17px;font-weight:600;color:#fff;line-height:1.2;}
+.cs-client{font-size:12px;color:#888;margin-top:2px;}
+.cs-viewonly{font-size:10px;color:#9a9a9a;border:1px solid rgba(255,255,255,0.16);padding:5px 11px;border-radius:20px;white-space:nowrap;}
+.cs-main{padding-top:8px;}
+.cs-section{padding:24px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+.cs-sec-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.cs-sec-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#777;font-weight:600;}
+.cs-vbadge{font-size:10px;padding:2px 9px;border-radius:20px;}
+.cs-script{font-size:14px;line-height:1.75;color:#cfcfcf;}
+.cs-script h1,.cs-script h2,.cs-script h3{color:#fff;margin:14px 0 7px;line-height:1.3;}
+.cs-script h1{font-size:19px;}.cs-script h2{font-size:16px;}.cs-script h3{font-size:14px;}
+.cs-script p{margin:6px 0;}
+.cs-script strong{color:#fff;}.cs-script em{color:#aaa;}
+.cs-script table{border-collapse:collapse;width:100%;margin:10px 0;font-size:13px;}
+.cs-script td,.cs-script th{border:1px solid rgba(255,255,255,0.14);padding:6px 9px;vertical-align:top;}
+.cs-script ul,.cs-script ol{margin:6px 0 6px 20px;}
+.cs-empty-inline{color:#666;font-style:italic;}
+.cs-frames{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;}
+.cs-frame{background:#161616;border:1px solid rgba(255,255,255,0.08);border-radius:9px;overflow:hidden;position:relative;}
+.cs-frame-no{position:absolute;top:7px;left:8px;font-size:10px;color:#fff;background:rgba(0,0,0,0.55);padding:1px 7px;border-radius:10px;z-index:1;}
+.cs-frame-img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block;background:#1f1f1f;}
+.cs-frame-noimg{display:block;}
+.cs-frame-text{padding:10px 11px;}
+.cs-frame-field{font-size:12px;color:#bbb;line-height:1.5;margin-bottom:6px;}
+.cs-frame-k{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#666;margin-bottom:1px;}
+.cs-footer{display:flex;align-items:center;justify-content:space-between;padding:20px 0;margin-top:10px;font-size:11px;color:#5a5a5a;}
+.cs-foot-mark{color:#3b82f6;font-weight:600;opacity:0.7;}
+@media(max-width:560px){.cs-frames{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));}.cs-header{flex-wrap:wrap;}}
 
 /* ── RICH TEXT EDITOR TOOLBAR ── */
 .editor-toolbar{display:flex;align-items:center;gap:2px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;flex-wrap:wrap;}
@@ -1661,6 +1737,10 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
     </button>
   </div>
 
+  <button id="client-share-btn" onclick="openShareDialog()" title="share a read-only view with your client">
+    <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><circle cx="3.3" cy="7" r="1.7" stroke="currentColor" stroke-width="1.2"/><circle cx="10.7" cy="3.5" r="1.7" stroke="currentColor" stroke-width="1.2"/><circle cx="10.7" cy="10.5" r="1.7" stroke="currentColor" stroke-width="1.2"/><path d="M4.8 6.2l4.4-2M4.8 7.8l4.4 2" stroke="currentColor" stroke-width="1.2"/></svg>
+    share
+  </button>
   <button id="split-view-btn" title="split view — show two panels side by side">
     <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="4.5" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/><rect x="6.5" y="1" width="4.5" height="10" rx="1" stroke="currentColor" stroke-width="1.2"/></svg>
     split
@@ -3168,6 +3248,8 @@ function renderVersionBar(kind){
     +'<span class="vp-no">v'+active.no+'</span>'
     +'<span class="ver-badge '+verStatusClass(active.status)+'">'+active.status+'</span>'
     +(locked?VER_LOCK_ICO:'')+VER_CHEV+'</span>';
+  const visOn=active.visibility==='client';
+  h+='<button class="ver-eye'+(visOn?' on':'')+'" onclick="toggleVersionVisibility('+q+",'"+active.id+"')\" title=\""+(visOn?'visible to client — click to make internal':'internal — click to share this cut with the client')+"\">"+(visOn?EYE_ON:EYE_OFF)+(visOn?'<span class=\"ver-eye-lbl\">client</span>':'')+'</button>';
   h+='<button class="ver-btn" onclick="newVersion('+q+')" title="duplicate this version into a new draft">'
     +'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><line x1="6" y1="1.5" x2="6" y2="10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="1.5" y1="6" x2="10.5" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
     +(locked?'Duplicate to edit':'New version')+'</button>';
@@ -3191,6 +3273,7 @@ function renderVersionBar(kind){
         +'<span class="ver-menu-no">v'+v.no+'</span>'
         +'<span class="ver-badge '+verStatusClass(v.status)+'">'+v.status+'</span>'
         +(v.status==='approved'?VER_LOCK_ICO:'')
+        +'<button class="ver-eye sm'+(v.visibility==='client'?' on':'')+'" onclick="event.stopPropagation();toggleVersionVisibility('+q+",'"+v.id+"')\" title=\"toggle client visibility\">"+(v.visibility==='client'?EYE_ON:EYE_OFF)+'</button>'
         +'<span class="ver-menu-meta">'+(cur?'current':verFmtTime(v.updatedAt||v.createdAt))+'</span>'
         +'</div>';
     }).join('')+'</div>';
@@ -3201,6 +3284,158 @@ function renderVersionBar(kind){
 document.addEventListener('click',function(e){
   if(verOpenMenu&&!(e.target.closest&&e.target.closest('.ver-bar'))){verOpenMenu=null;renderVersionBars();}
 });
+
+// ══ PHASE 2 — CLIENT SHARING (read-only published view) ═════════════════════
+// "Publish" a project to a read-only client view: collect only the versions
+// marked visibility:'client', strip everything else (internal versions, the
+// brainstorm board, other projects), and upsert that snapshot to the public
+// `published_shares` table. The client opens index.html?share=<id> and the app
+// short-circuits into a read-only render. Because the snapshot holds only
+// client-tagged data, nothing internal ever reaches the client's browser.
+const EYE_ON='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M1.5 8S3.7 3.8 8 3.8 14.5 8 14.5 8 12.3 12.2 8 12.2 1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.2"/></svg>';
+const EYE_OFF='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 4.2C1.9 5.3 1.5 8 1.5 8S3.7 12.2 8 12.2c1.2 0 2.2-.3 3.1-.8M6.5 4C7 3.9 7.5 3.8 8 3.8 12.3 3.8 14.5 8 14.5 8s-.5 1-1.5 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M2.5 2.5l11 11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
+function toggleVersionVisibility(kind,versionId){
+  const b=activeBoard();if(!b)return;migrateBoardVersions(b);
+  const v=verStore(b,kind).versions.find(x=>x.id===versionId);if(!v)return;
+  v.visibility=(v.visibility==='client')?'internal':'client';v.updatedAt=verNowISO();
+  renderVersionBars();autoSave();
+  showToast('v'+v.no+(v.visibility==='client'?' → visible to client':' → internal'));
+}
+
+// Field {key,label} defs for the enabled storyboard fields (so the client view
+// can show readable labels without shipping the whole field config).
+function verFieldDefs(enabledKeys){
+  const all=(typeof ALL_FIELDS!=='undefined')?ALL_FIELDS:[];
+  return (enabledKeys||[]).map(k=>{const fd=all.find(x=>x.key===k);return {key:k,label:fd?fd.label:k};});
+}
+// Materialize a version's content (the active version's content lives in the buffer).
+function verScriptHtml(b,v){return (v.id===b.scripts.activeId)?(b.scriptHtml||''):(v.html||'');}
+function verSbContent(b,v){
+  return (v.id===b.storyboards.activeId)
+    ? {frames:b.frames||[],sectionOrder:b.sectionOrder||[],enabledFields:b.enabledFields||[]}
+    : {frames:v.frames||[],sectionOrder:v.sectionOrder||[],enabledFields:v.enabledFields||[]};
+}
+function clientVisibleVersions(b,kind){return verStore(b,kind).versions.filter(v=>v.visibility==='client').sort((a,c)=>a.no-c.no);}
+// Build the stripped, client-safe snapshot for a board (null if nothing is shared).
+function buildClientSnapshot(b){
+  migrateBoardVersions(b);
+  const scripts=clientVisibleVersions(b,'script').map(v=>({no:v.no,status:v.status,html:verScriptHtml(b,v)}));
+  const storyboards=clientVisibleVersions(b,'storyboard').map(v=>{
+    const c=verSbContent(b,v);
+    const keys=(c.enabledFields&&c.enabledFields.length)?c.enabledFields:(c.sectionOrder||['voiceOver','action']);
+    const fields=verFieldDefs(keys);
+    return {no:v.no,status:v.status,fields:fields,
+      frames:(c.frames||[]).map(f=>{const o={image:f.image||null};fields.forEach(fd=>o[fd.key]=f[fd.key]||'');return o;})};
+  });
+  if(!scripts.length&&!storyboards.length)return null;
+  return {v:1,project:{client:(b.meta&&b.meta.client)||'',title:(b.meta&&b.meta.project)||'',job:(b.meta&&b.meta.job)||''},
+    sharedBy:verAuthor(),sharedAt:verNowISO(),scripts:scripts,storyboards:storyboards};
+}
+
+function genShareId(){try{return 'pb_'+crypto.randomUUID().replace(/-/g,'');}catch(e){return 'pb_'+Math.random().toString(36).slice(2)+Date.now().toString(36);}}
+function shareLink(id){return location.origin+location.pathname+'?share='+id;}
+let shareBusy=false;
+async function publishClientShare(){
+  const b=activeBoard();if(!b||shareBusy)return;
+  const snap=buildClientSnapshot(b);
+  if(!snap){renderShareDialog({mode:'empty'});return;}
+  shareBusy=true;renderShareDialog({mode:'busy'});
+  try{
+    if(!b.shareId)b.shareId=genShareId();
+    const row={id:b.shareId,data:snap,updated_at:new Date().toISOString()};
+    if(AUTH_ENABLED&&authUser&&sbClient){
+      const {error}=await sbClient.from('published_shares').upsert(row,{onConflict:'id'});
+      if(error)throw error;
+    }else{
+      await sbFetch('/rest/v1/published_shares',{method:'POST',body:JSON.stringify(row)});
+    }
+    b.sharedAt=new Date().toISOString();autoSave();
+    const link=shareLink(b.shareId);
+    renderShareDialog({mode:'link',link:link});
+    try{await navigator.clipboard.writeText(link);showToast('link copied');}catch(e){}
+  }catch(e){
+    console.warn('publish failed',e);
+    const txt=((e&&(e.message||e.hint))||'')+'';
+    const msg=/relation|does not exist|published_shares|schema cache|not find the table/i.test(txt)
+      ?'The share table isn’t set up yet — run the one-time SQL in Supabase, then try again.'
+      :('Couldn’t publish: '+(txt||'unknown error'));
+    renderShareDialog({mode:'error',message:msg});
+  }finally{shareBusy=false;}
+}
+function shareDialogEl(){
+  let ov=document.getElementById('share-dialog');
+  if(!ov){ov=document.createElement('div');ov.id='share-dialog';ov.addEventListener('click',e=>{if(e.target===ov)closeShareDialog();});document.body.appendChild(ov);}
+  return ov;
+}
+function closeShareDialog(){const ov=document.getElementById('share-dialog');if(ov)ov.style.display='none';}
+function copyShareLink(){const i=document.getElementById('shd-link');if(!i)return;i.focus();i.select();try{navigator.clipboard.writeText(i.value);}catch(e){try{document.execCommand('copy');}catch(e2){}}showToast('link copied');}
+function openShareDialog(){
+  const b=activeBoard();if(!b)return;
+  const snap=buildClientSnapshot(b);
+  if(!snap){renderShareDialog({mode:'empty'});return;}
+  renderShareDialog({mode:'confirm',countS:snap.scripts.length,countT:snap.storyboards.length,existing:!!b.shareId});
+}
+function renderShareDialog(st){
+  const ov=shareDialogEl();let body='';
+  if(st.mode==='empty'){
+    body='<div class="shd-msg">Mark at least one script or storyboard version as <strong>client-visible</strong> first — use the eye toggle on the version bar.</div>';
+  }else if(st.mode==='confirm'){
+    body='<div class="shd-summary">This share will include <strong>'+st.countS+'</strong> script and <strong>'+st.countT+'</strong> storyboard version(s) you marked client-visible.</div>'
+      +'<div class="shd-actions"><button class="shd-btn primary" onclick="publishClientShare()">'+(st.existing?'Re-publish &amp; copy link':'Publish &amp; copy link')+'</button></div>';
+  }else if(st.mode==='busy'){
+    body='<div class="shd-msg">Publishing…</div>';
+  }else if(st.mode==='link'){
+    body='<div class="shd-row"><input id="shd-link" readonly value="'+verEsc(st.link)+'"/><button class="shd-btn" onclick="copyShareLink()">Copy</button></div>'
+      +'<div class="shd-actions"><a class="shd-link-open" href="'+verEsc(st.link)+'" target="_blank" rel="noopener">Open client preview ↗</a></div>'
+      +'<div class="shd-note">Anyone with this link can view it — no login. Re-publish anytime to update what they see.</div>';
+  }else if(st.mode==='error'){
+    body='<div class="shd-msg shd-err">'+verEsc(st.message)+'</div><div class="shd-actions"><button class="shd-btn primary" onclick="publishClientShare()">Try again</button></div>';
+  }
+  ov.innerHTML='<div class="shd-card"><div class="shd-head"><span>Share with client</span><button class="shd-x" onclick="closeShareDialog()" aria-label="close">✕</button></div>'+body+'</div>';
+  ov.style.display='flex';
+  if(st.mode==='link'){const i=document.getElementById('shd-link');if(i){i.focus();i.select();}}
+}
+
+// ── CLIENT VIEWER (read-only) — entered via index.html?share=<id> ──
+async function renderClientShare(shareId){
+  const root=document.createElement('div');root.id='client-share-root';document.body.appendChild(root);
+  document.documentElement.classList.add('client-share-mode');
+  root.innerHTML='<div class="cs-state"><div class="cs-brandmark">production buddy</div><div class="cs-state-msg">Loading…</div></div>';
+  let snap=null;
+  try{
+    const rows=await sbFetch('/rest/v1/published_shares?id=eq.'+encodeURIComponent(shareId)+'&select=data');
+    snap=rows&&rows.length?rows[0].data:null;
+  }catch(e){console.warn('share load failed',e);}
+  if(!snap){
+    root.innerHTML='<div class="cs-state"><div class="cs-brandmark">production buddy</div><div class="cs-state-msg">This share link isn’t available.</div><div class="cs-state-sub">It may have been unpublished, or the link is incomplete.</div></div>';
+    return;
+  }
+  renderClientSnapshot(root,snap);
+}
+function renderClientSnapshot(root,snap){
+  const p=snap.project||{};
+  let h='<div class="cs-wrap"><header class="cs-header">'
+    +'<div class="cs-brand"><span class="cs-logo"></span><div><div class="cs-title">'+(verEsc(p.title)||'Untitled project')+'</div>'+(p.client?'<div class="cs-client">'+verEsc(p.client)+'</div>':'')+'</div></div>'
+    +'<span class="cs-viewonly">view only · shared for review</span></header><main class="cs-main">';
+  (snap.scripts||[]).forEach(s=>{
+    h+='<section class="cs-section"><div class="cs-sec-head"><span class="cs-sec-label">Script</span><span class="cs-vbadge '+verStatusClass(s.status)+'">v'+s.no+' · '+s.status+'</span></div>'
+      +'<div class="cs-script">'+(s.html&&s.html.trim()?s.html:'<span class="cs-empty-inline">No script content.</span>')+'</div></section>';
+  });
+  (snap.storyboards||[]).forEach(t=>{
+    const fields=t.fields||[{key:'voiceOver',label:'voice over'},{key:'action',label:'action'}];
+    h+='<section class="cs-section"><div class="cs-sec-head"><span class="cs-sec-label">Storyboard</span><span class="cs-vbadge '+verStatusClass(t.status)+'">v'+t.no+' · '+t.status+'</span></div>'
+      +'<div class="cs-frames">'+(t.frames||[]).map((f,i)=>csFrame(f,i,fields)).join('')+'</div></section>';
+  });
+  h+='</main><footer class="cs-footer"><span>Shared by '+verEsc(snap.sharedBy||'the team')+'</span><span class="cs-foot-mark">production buddy</span></footer></div>';
+  root.innerHTML=h;
+}
+function csFrame(f,i,fields){
+  const media=f.image?'<img class="cs-frame-img" src="'+verEsc(f.image)+'" alt="frame '+(i+1)+'" loading="lazy"/>':'<div class="cs-frame-img cs-frame-noimg"></div>';
+  let text='';
+  (fields||[]).forEach(fd=>{const val=f[fd.key];if(val&&(''+val).trim())text+='<div class="cs-frame-field"><span class="cs-frame-k">'+verEsc(fd.label)+'</span>'+verEsc(val)+'</div>';});
+  return '<div class="cs-frame"><div class="cs-frame-no">'+(i+1)+'</div>'+media+'<div class="cs-frame-text">'+text+'</div></div>';
+}
 
 function $(id){return document.getElementById(id);}
 
@@ -3288,6 +3523,10 @@ function renderAccount(){
 }
 
 async function init(){
+  // CLIENT SHARE VIEWER: opened with ?share=<id> → render the read-only client
+  // view and stop (no auth gate, no cloud load, no editing app).
+  const _shareId=new URLSearchParams(location.search).get('share');
+  if(_shareId){await renderClientShare(_shareId);return;}
   let loaded=false;
 
   // Gate on auth when enabled. If not signed in, the login screen is shown and
