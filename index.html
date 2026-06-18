@@ -293,6 +293,44 @@ body.light .script-btn:hover{background:#f0ede8;color:#444;}
 body.light .script-btn.primary{background:#3b82f6;color:#fff !important;}
 body.light .script-btn.primary:hover{background:#2563eb;}
 #script-file-input{display:none;}
+/* ── ARTIFACT VERSION BAR (Phase 1 versioning) ── */
+.ver-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;flex-shrink:0;font-size:11px;position:relative;background:#131313;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
+body.light .ver-bar{background:#f6f4f0;border-color:#e4e0d9;}
+#sb-version-bar{border-top:1px solid rgba(255,255,255,0.06);}
+body.light #sb-version-bar{border-top-color:#e4e0d9;}
+.ver-label{color:#666;text-transform:uppercase;letter-spacing:.06em;font-size:9px;font-weight:600;}
+.ver-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 9px;border-radius:7px;border:1px solid rgba(255,255,255,0.16);background:#1d1d1d;color:#ddd;cursor:pointer;user-select:none;}
+.ver-pill:hover{background:#262626;}
+body.light .ver-pill{background:#fff;border-color:#d6d2cb;color:#333;}
+.ver-pill .vp-no{font-weight:600;}
+.ver-badge{font-size:9px;padding:1px 7px;border-radius:20px;letter-spacing:.02em;white-space:nowrap;}
+.vs-draft{background:rgba(200,120,48,0.18);color:#e0a060;}
+.vs-review{background:rgba(59,130,246,0.18);color:#6fa8ee;}
+.vs-approved{background:rgba(46,158,111,0.22);color:#3fb588;}
+.ver-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:7px;border:1px solid rgba(255,255,255,0.14);background:transparent;color:#9a9a9a;cursor:pointer;font-family:inherit;font-size:11px;white-space:nowrap;}
+.ver-btn:hover{background:#232323;color:#ccc;}
+body.light .ver-btn{border-color:#d6d2cb;color:#777;}
+body.light .ver-btn:hover{background:#efece7;color:#444;}
+.ver-btn.approve{border-color:rgba(46,158,111,0.5);color:#3fb588;}
+.ver-btn.approve:hover{background:rgba(46,158,111,0.12);color:#54c89a;}
+.ver-spacer{margin-left:auto;}
+.ver-meta{color:#5a5a5a;font-size:10px;white-space:nowrap;}
+.ver-locknote{display:inline-flex;align-items:center;gap:4px;color:#3fb588;font-size:10px;white-space:nowrap;}
+.ver-lock-ico{display:inline-flex;color:#3fb588;vertical-align:middle;}
+.ver-menu{position:absolute;top:34px;left:12px;z-index:60;min-width:232px;background:#1b1b1b;border:1px solid rgba(255,255,255,0.16);border-radius:9px;padding:5px;box-shadow:0 12px 30px rgba(0,0,0,0.55);}
+body.light .ver-menu{background:#fff;border-color:#ddd;box-shadow:0 12px 30px rgba(0,0,0,0.16);}
+.ver-menu-item{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:6px;cursor:pointer;}
+.ver-menu-item:hover{background:rgba(255,255,255,0.06);}
+body.light .ver-menu-item:hover{background:#f0ede8;}
+.ver-menu-item.cur{background:rgba(59,130,246,0.14);}
+.ver-menu-no{font-weight:600;color:#ddd;min-width:24px;}
+body.light .ver-menu-no{color:#333;}
+.ver-menu-meta{margin-left:auto;color:#6a6a6a;font-size:10px;}
+.ver-locked{caret-color:transparent;}
+body.storyboard-version-locked #board{pointer-events:none;opacity:0.6;}
+body.storyboard-version-locked #add-frame-btn{pointer-events:none;opacity:0.3;}
+body.storyboard-version-locked #sb-import-btn,body.storyboard-version-locked #field-wrap,body.storyboard-version-locked #sb-undo,body.storyboard-version-locked #sb-redo{pointer-events:none;opacity:0.35;}
+body.script-version-locked #editor-toolbar,body.script-version-locked .script-topbar .script-actions,body.script-version-locked #sp-editor-toolbar,body.script-version-locked #sp-import-btn,body.script-version-locked #sp-clear-btn{pointer-events:none;opacity:0.4;}
 
 /* ── RICH TEXT EDITOR TOOLBAR ── */
 .editor-toolbar{display:flex;align-items:center;gap:2px;padding:5px 10px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;flex-wrap:wrap;}
@@ -1786,6 +1824,8 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
     </div>
   </div>
 
+  <div id="sp-version-bar" class="ver-bar ver-host-script"></div>
+
   <!-- editor toolbar -->
   <div class="editor-toolbar" id="sp-editor-toolbar">
     <select class="et-select" id="sp-format-select">
@@ -1929,6 +1969,8 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
         </div>
       </div>
 
+      <div id="script-version-bar" class="ver-bar ver-host-script"></div>
+
       <!-- Rich text editor toolbar -->
       <div class="editor-toolbar" id="editor-toolbar">
         <select class="et-select" onchange="execCmd('formatBlock',this.value);this.value='p';">
@@ -1969,6 +2011,7 @@ body.light #cal-sync-toast{background:#fff;border-color:#ddd;}
 
   <!-- CANVAS -->
   <div id="canvas-wrap">
+    <div id="sb-version-bar" class="ver-bar ver-host-storyboard"></div>
     <div id="canvas">
       <div id="board" style="grid-template-columns:repeat(3,minmax(0,1fr));"></div>
       <button id="add-frame-btn">
@@ -2754,6 +2797,7 @@ let boards=[];
 let activeBoardId=null;
 let nextBoardId=1;
 let nextFrameId=1;
+let nextVersionId=1;
 let cols=3;
 let isDark=true;
 let scriptVisible=false;
@@ -2848,10 +2892,20 @@ function loadFromBoard(){
   if(typeof dlRefresh==='function')dlRefresh();
   // refresh brainstorm for this project
   if(window.bsLoadFromBoard)window.bsLoadFromBoard();
+  // refresh the standalone script editor so it shows the active version's content
+  if(window.spLoadFromBoard)window.spLoadFromBoard();
+  // refresh the per-artifact version bars + lock state for this project
+  renderVersionBars();
+  applyScriptLockState();
+  applyStoryboardLockState();
 }
-function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFrameId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
+function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFrameId,nextVersionId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
 function stripImages(state){
-  return{...state,boards:state.boards.map(b=>({...b,frames:b.frames.map(f=>({...f,image:null,annLayer:null}))}))};
+  const strip=f=>({...f,image:null,annLayer:null});
+  return{...state,boards:state.boards.map(b=>({...b,
+    frames:(b.frames||[]).map(strip),
+    storyboards:b.storyboards?{...b.storyboards,versions:b.storyboards.versions.map(v=>v.frames?{...v,frames:v.frames.map(strip)}:v)}:b.storyboards
+  }))};
 }
 // Shrink an imported image: cap the longest edge at 1600px and re-encode as JPEG.
 // A 12-megapixel phone photo (~6MB of base64) becomes ~200KB, which keeps the
@@ -2956,6 +3010,8 @@ function downloadBackup(){
 function loadState(state){
   boards=state.boards||[];
   boards.forEach(b=>{if(!b.scriptHtml)b.scriptHtml='';});
+  nextVersionId=state.nextVersionId||1;
+  boards.forEach(migrateBoardVersions);
   activeBoardId=state.activeBoardId||boards[0]?.id;
   nextBoardId=state.nextBoardId||boards.length+1;
   nextFrameId=state.nextFrameId||10;
@@ -2968,6 +3024,184 @@ function loadState(state){
   if(state.scriptPanelWidth&&state.scriptPanelWidth>100){$('script-panel').style.width=state.scriptPanelWidth+'px';}
   if(state.fontSize){currentFontSize=state.fontSize;}
 }
+// ══ ARTIFACT VERSIONING (Phase 1 — local, no backend) ═══════════════════════
+// Each project keeps its live working buffers (scriptHtml / frames / sectionOrder
+// / enabledFields) exactly as before, so every existing edit path keeps working.
+// Alongside them sits a per-artifact version store. The ACTIVE version carries no
+// content of its own — its content IS the top-level working buffer (which the app
+// has always persisted, so older builds still read the live cut). INACTIVE
+// versions are parked snapshots that hold their own content. Switching/duplicating
+// parks the current buffer into the outgoing version and loads the incoming one.
+// Approved versions are immutable: editing is blocked and the user must duplicate
+// to a fresh draft. These shapes map 1:1 onto Phase 2's Supabase tables.
+let verOpenMenu=null; // {kind} of the currently-open version dropdown, or null
+function verNowISO(){return new Date().toISOString();}
+function verAuthor(){return (typeof authUser!=='undefined'&&authUser&&authUser.email)?authUser.email:'you';}
+function verNewId(p){return p+(nextVersionId++);}
+function verClone(o){try{return structuredClone(o);}catch(e){return JSON.parse(JSON.stringify(o));}}
+function verEsc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function verStatusClass(s){return s==='approved'?'vs-approved':(s==='in review'?'vs-review':'vs-draft');}
+function verFmtTime(iso){
+  if(!iso)return'';
+  try{const d=new Date(iso),now=new Date(),diff=(now-d)/1000;
+    if(diff<45)return'just now';
+    if(diff<3600)return Math.max(1,Math.floor(diff/60))+'m ago';
+    if(diff<86400)return Math.floor(diff/3600)+'h ago';
+    if(diff<604800)return Math.floor(diff/86400)+'d ago';
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  }catch(e){return'';}
+}
+const VER_LOCK_ICO='<svg class="ver-lock-ico" width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="2.6" y="6" width="8.8" height="6.2" rx="1.3" stroke="currentColor" stroke-width="1.2"/><path d="M4.6 6V4.4a2.4 2.4 0 0 1 4.8 0V6" stroke="currentColor" stroke-width="1.2"/></svg>';
+const VER_CHEV='<svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3.5 5.5l3.5 3.5 3.5-3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function verMakeScript(no,extra){return Object.assign({id:verNewId('sv'),no:no,status:'draft',visibility:'internal',author:verAuthor(),createdAt:verNowISO(),updatedAt:verNowISO(),approvedAt:null,approvedBy:null,note:''},extra||{});}
+function verMakeStoryboard(no,extra){return Object.assign({id:verNewId('tb'),no:no,status:'draft',visibility:'internal',author:verAuthor(),createdAt:verNowISO(),updatedAt:verNowISO(),approvedAt:null,approvedBy:null,note:''},extra||{});}
+// Lazily build a board's version stores from its existing live content. Idempotent.
+function migrateBoardVersions(b){
+  if(!b)return;
+  if(!b.scripts||!b.scripts.versions||!b.scripts.versions.length){
+    const v=verMakeScript(1);b.scripts={activeId:v.id,versions:[v]}; // active holds no html → buffer is its content
+  }
+  if(!b.storyboards||!b.storyboards.versions||!b.storyboards.versions.length){
+    const v=verMakeStoryboard(1);b.storyboards={activeId:v.id,versions:[v]}; // active holds no frames → buffer is its content
+  }
+}
+function verStore(b,kind){return kind==='script'?b.scripts:b.storyboards;}
+function verActive(store){return store?store.versions.find(v=>v.id===store.activeId):null;}
+function verMaxNo(store){return store.versions.reduce((m,v)=>Math.max(m,v.no||0),0);}
+function verIsLocked(v){return !!v&&v.status==='approved';}
+// Capture any in-progress edit from the FOCUSED script editor into the buffer.
+// (Both editors' input handlers already keep b.scriptHtml current; this only
+// guards the just-typed-then-clicked-a-button case, and never clobbers the
+// buffer with a stale non-focused editor.)
+function syncEditorsToBuffer(){
+  const b=activeBoard();if(!b)return;
+  const a=document.activeElement;
+  if(a&&(a.id==='sp-editor'||a.id==='script-editor'))b.scriptHtml=a.innerHTML;
+}
+// Park the outgoing active version's content into its own snapshot fields.
+function verParkScript(b){const v=verActive(b.scripts);if(!v)return;v.html=b.scriptHtml||'';v.updatedAt=verNowISO();}
+function verParkStoryboard(b){const v=verActive(b.storyboards);if(!v)return;v.frames=b.frames||[];v.sectionOrder=(b.sectionOrder||[]).slice();v.enabledFields=(b.enabledFields||[]).slice();v.updatedAt=verNowISO();}
+// Load an incoming version's content into the live buffer, then strip it from the
+// version record so the active cut lives only in the buffer (no double-storage).
+function verLoadScript(b,v){b.scriptHtml=(typeof v.html==='string')?v.html:'';delete v.html;b.scripts.activeId=v.id;}
+function verLoadStoryboard(b,v){b.frames=Array.isArray(v.frames)?v.frames:[];b.sectionOrder=Array.isArray(v.sectionOrder)?v.sectionOrder:['voiceOver','action'];b.enabledFields=Array.isArray(v.enabledFields)?v.enabledFields:['voiceOver','action'];delete v.frames;delete v.sectionOrder;delete v.enabledFields;b.storyboards.activeId=v.id;}
+
+function reloadScriptEditors(){
+  const b=activeBoard();if(!b)return;
+  const main=document.getElementById('script-editor');if(main)main.innerHTML=b.scriptHtml||'';
+  const sp=document.getElementById('sp-editor');if(sp)sp.innerHTML=b.scriptHtml||'';
+  if(typeof initTableColumnResize==='function')setTimeout(initTableColumnResize,30);
+}
+function applyScriptLockState(){
+  const b=activeBoard();if(!b)return;migrateBoardVersions(b);
+  const locked=verIsLocked(verActive(b.scripts));
+  ['script-editor','sp-editor'].forEach(id=>{const el=document.getElementById(id);if(el){el.setAttribute('contenteditable',locked?'false':'true');el.classList.toggle('ver-locked',locked);}});
+  document.body.classList.toggle('script-version-locked',locked);
+}
+function applyStoryboardLockState(){
+  const b=activeBoard();if(!b)return;migrateBoardVersions(b);
+  document.body.classList.toggle('storyboard-version-locked',verIsLocked(verActive(b.storyboards)));
+}
+
+function switchVersion(kind,targetId){
+  const b=activeBoard();if(!b)return;migrateBoardVersions(b);
+  const store=verStore(b,kind);
+  if(targetId===store.activeId){verOpenMenu=null;renderVersionBars();return;}
+  const target=store.versions.find(v=>v.id===targetId);if(!target)return;
+  if(kind==='script'){
+    syncEditorsToBuffer();verParkScript(b);verLoadScript(b,target);
+    reloadScriptEditors();applyScriptLockState();
+  }else{
+    verParkStoryboard(b);verLoadStoryboard(b,target);
+    sbHistory=[];sbRedo=[];if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
+    renderAll();applyStoryboardLockState();
+  }
+  verOpenMenu=null;renderVersionBars();autoSave();
+  showToast((kind==='script'?'script':'storyboard')+' → v'+target.no);
+}
+function newVersion(kind){
+  const b=activeBoard();if(!b)return;migrateBoardVersions(b);
+  const store=verStore(b,kind);const fromNo=verActive(store)?verActive(store).no:0;
+  if(kind==='script'){
+    syncEditorsToBuffer();verParkScript(b); // freeze the outgoing version as its own snapshot
+    const nv=verMakeScript(verMaxNo(store)+1,{note:'from v'+fromNo});
+    store.versions.push(nv);store.activeId=nv.id; // buffer already holds the copy to iterate on
+    reloadScriptEditors();applyScriptLockState();
+  }else{
+    verParkStoryboard(b);
+    const nv=verMakeStoryboard(verMaxNo(store)+1,{note:'from v'+fromNo});
+    b.frames=verClone(b.frames||[]);b.frames.forEach(f=>{f.id=nextFrameId++;}); // independent copy w/ fresh ids
+    store.versions.push(nv);store.activeId=nv.id;
+    sbHistory=[];sbRedo=[];if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
+    renderAll();applyStoryboardLockState();
+  }
+  verOpenMenu=null;renderVersionBars();autoSave();
+  showToast('created v'+verActive(store).no+' · draft');
+}
+function approveVersion(kind){setVersionStatus(kind,'approved');}
+function setVersionStatus(kind,status){
+  const b=activeBoard();if(!b)return;migrateBoardVersions(b);
+  const v=verActive(verStore(b,kind));if(!v)return;
+  if(kind==='script')syncEditorsToBuffer();
+  v.status=status;v.updatedAt=verNowISO();
+  if(status==='approved'){v.approvedAt=verNowISO();v.approvedBy=verAuthor();}
+  else{v.approvedAt=null;v.approvedBy=null;}
+  if(kind==='script')applyScriptLockState();else applyStoryboardLockState();
+  verOpenMenu=null;renderVersionBars();autoSave();
+  showToast(status==='approved'?('v'+v.no+' approved · locked'):('v'+v.no+' · '+status));
+}
+function toggleVerMenu(kind){verOpenMenu=(verOpenMenu&&verOpenMenu.kind===kind)?null:{kind:kind};renderVersionBars();}
+function renderVersionBars(){renderVersionBar('script');renderVersionBar('storyboard');}
+function renderVersionBar(kind){
+  const hosts=document.querySelectorAll('.ver-host-'+kind);
+  if(!hosts.length)return;
+  const b=activeBoard();
+  if(!b){hosts.forEach(x=>x.innerHTML='');return;}
+  migrateBoardVersions(b);
+  const store=verStore(b,kind);const active=verActive(store);
+  if(!active){hosts.forEach(x=>x.innerHTML='');return;}
+  const locked=active.status==='approved';
+  const q="'"+kind+"'";
+  let h='<span class="ver-label">'+(kind==='script'?'Script':'Storyboard')+'</span>';
+  h+='<span class="ver-pill" onclick="toggleVerMenu('+q+')" title="switch version">'
+    +'<span class="vp-no">v'+active.no+'</span>'
+    +'<span class="ver-badge '+verStatusClass(active.status)+'">'+active.status+'</span>'
+    +(locked?VER_LOCK_ICO:'')+VER_CHEV+'</span>';
+  h+='<button class="ver-btn" onclick="newVersion('+q+')" title="duplicate this version into a new draft">'
+    +'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><line x1="6" y1="1.5" x2="6" y2="10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="1.5" y1="6" x2="10.5" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+    +(locked?'Duplicate to edit':'New version')+'</button>';
+  if(locked){
+    h+='<span class="ver-locknote">'+VER_LOCK_ICO+'Approved — locked</span>';
+    h+='<button class="ver-btn" onclick="setVersionStatus('+q+",'draft')\" title=\"reopen this version for editing\">Reopen</button>";
+  }else{
+    h+='<button class="ver-btn approve" onclick="approveVersion('+q+')" title="lock this version as the approved cut">'
+      +'<svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Approve</button>';
+    if(active.status==='draft')h+='<button class="ver-btn" onclick="setVersionStatus('+q+",'in review')\">Mark in review</button>";
+    else h+='<button class="ver-btn" onclick="setVersionStatus('+q+",'draft')\">Back to draft</button>";
+  }
+  h+='<span class="ver-spacer"></span>';
+  const metaTime=(active.status==='approved'&&active.approvedAt)?('approved '+verFmtTime(active.approvedAt)):('edited '+verFmtTime(active.updatedAt||active.createdAt));
+  h+='<span class="ver-meta">'+verEsc(active.author||'you')+' · '+metaTime+'</span>';
+  if(verOpenMenu&&verOpenMenu.kind===kind){
+    const list=store.versions.slice().sort((a,c)=>c.no-a.no);
+    h+='<div class="ver-menu">'+list.map(v=>{
+      const cur=v.id===store.activeId;
+      return '<div class="ver-menu-item'+(cur?' cur':'')+'" onclick="switchVersion('+q+",'"+v.id+"')\">"
+        +'<span class="ver-menu-no">v'+v.no+'</span>'
+        +'<span class="ver-badge '+verStatusClass(v.status)+'">'+v.status+'</span>'
+        +(v.status==='approved'?VER_LOCK_ICO:'')
+        +'<span class="ver-menu-meta">'+(cur?'current':verFmtTime(v.updatedAt||v.createdAt))+'</span>'
+        +'</div>';
+    }).join('')+'</div>';
+  }
+  hosts.forEach(x=>x.innerHTML=h);
+}
+// close an open version menu when clicking anywhere outside a version bar
+document.addEventListener('click',function(e){
+  if(verOpenMenu&&!(e.target.closest&&e.target.closest('.ver-bar'))){verOpenMenu=null;renderVersionBars();}
+});
+
 function $(id){return document.getElementById(id);}
 
 // ── INIT ──────────────────────────────────────────────────────────────────
