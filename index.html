@@ -3933,6 +3933,7 @@ async function init(){
   }
   if(!loaded){const b=makeBoard('Project 1');boards=[b];activeBoardId=b.id;}
   renderTabs();loadFromBoard();renderAll();
+  if(typeof pbSeedExamples==='function'){try{pbSeedExamples();}catch(e){console.warn('example seed failed',e);}}
   if(typeof showHome==='function'){try{showHome();}catch(e){console.warn('home render failed',e);}}
 
   // One-time cleanup: shrink full-resolution images saved before compression existed.
@@ -4947,8 +4948,78 @@ function switchBoard(id){if(id===activeBoardId)return;syncToBoard();activeBoardI
 const HOME_ACCENTS=['var(--coral)','var(--grape)','var(--teal)','var(--tang)','var(--pink)','var(--ocean)'];
 const HOME_STAGES=['Brainstorm','Pre-production','Production','Deliverables','Archived'];
 function homeEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function accentForBoard(b){const i=Math.max(0,boards.findIndex(x=>x&&b&&x.id===b.id));return HOME_ACCENTS[i%HOME_ACCENTS.length];}
+function accentForBoard(b){if(b&&b.accent)return b.accent;const i=Math.max(0,boards.findIndex(x=>x&&b&&x.id===b.id));return HOME_ACCENTS[i%HOME_ACCENTS.length];}
 function applyProjectAccent(b){if(b)document.body.style.setProperty('--accent',accentForBoard(b));}
+/* ── One-time EXAMPLE PROJECTS seed (from the mockup files) ── */
+function pbSeedExamples(){
+  try{ if(localStorage.getItem('pb_examples_v1')) return; }catch(e){}
+  if(typeof makeBoard!=='function'||!Array.isArray(boards)) return;
+  const now=Date.now(), iso=new Date(now).toISOString(), ago=m=>now-m*60000;
+  const scenes=rows=>'<table class="sp-scene-table"><thead><tr><th>Scene</th><th>Narration</th><th>On screen</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')+'</tbody></table>';
+  const ver=(no,status)=>({id:'sv'+no,no,status,visibility:status==='approved'?'client':'internal',author:'you',createdAt:iso,updatedAt:iso,approvedAt:status==='approved'?iso:null,approvedBy:status==='approved'?'you':null,note:''});
+  const mk=(client,project,job,accent)=>{const b=makeBoard(project);b.meta={client,project,job,version:''};b.accent=accent;return b;};
+
+  // 1 — Fintech Onboarding (Northstar): full brainstorm + script
+  const f=mk('Northstar','Fintech Onboarding Explainer','10428','var(--coral)');
+  f.brainstorm={nextId:13,panX:24,panY:24,scale:.72,cards:[
+    {id:1,type:'note',x:40,y:56,r:-2,tint:'#FFE08A',text:'Cold open on the pain point'},
+    {id:2,type:'note',x:252,y:40,r:2,tint:'#BFE9CF',text:'Keep it under 75 sec'},
+    {id:3,type:'note',x:40,y:272,r:-1.5,tint:'#F7C9DC',text:'Voice: friendly, not a bank'},
+    {id:4,type:'frame',x:252,y:252,r:0,cap:'Boards 01 — phone hand-off'},
+    {id:5,type:'link',x:40,y:498,r:0,title:'Fintech onboarding flows',url:'dribbble.com/search'},
+    {id:6,type:'pad',x:300,y:482,r:0,w:272,h:212,title:'Kickoff call',date:'Jun 12',html:'• Explain product in under 75s<br>• Feel fast + trustworthy<br>• Legal review on $ figures<br>• VO casting locked by Fri'},
+    {id:7,type:'idea',x:992,y:520,r:0,tag:'hero idea',text:'The money “teleports” — hard cuts, never a loading spinner.'},
+    {id:8,type:'group',x:606,y:28,w:560,h:452,label:'Visual direction'},
+    {id:9,type:'ref',x:632,y:82,r:-1.5,cap:'Cuberto — snappy easing & overshoot'},
+    {id:10,type:'ref',x:876,y:82,r:1,cap:'Kurzgesagt — layered depth & glow'},
+    {id:11,type:'swatch',x:632,y:300,r:0,title:'Brand colors',colors:['#FF5A4D','#FF9E1B','#1C1B19','#F2EEE9']},
+    {id:12,type:'ref',x:876,y:300,r:-1,cap:'Real product screen — keep UI honest'}
+  ]};
+  f.scriptHtml=scenes([
+    ['Cold open','Sending money should feel instant. But too often, you tap “send,” watch a spinner crawl, and just… wait. Hours. Sometimes days. Quietly wondering whether it even went through at all.','Black frame. A lone spinner crawls. Quiet, drawn-out tension.'],
+    ['The turn','It doesn’t have to be this way. What if, the moment you decided to move your money, it simply moved — no spinner, no waiting, no second-guessing where it went?','The spinner snaps away into clean, bright white space.'],
+    ['Meet Northstar','That’s Northstar. We send your money the instant you decide to, so “sent” and “arrived” finally mean the same thing.','Phone rises into frame; the app opens with a soft, confident bounce.'],
+    ['How it works','And it’s just three taps. Pick a person, choose an amount, and confirm — the money is already there. No loading screens, no pending status.','Three fast UI beats: contact, amount, confirm. On “confirm,” the money teleports.'],
+    ['Built on trust','Every transfer is protected by bank-grade security and monitored around the clock — encrypted, accounted for, and exactly where you expect it.','A shield motif assembles; ledger numbers reconcile cleanly to zero.'],
+    ['Close','So that’s Northstar. Money that moves the instant you do. Open the app and feel the difference today.','Logo resolves; tagline lands on a warm coral wash.']
+  ]);
+  f.scripts={activeId:'sv1',versions:[ver(1,'in review')]};
+  f.updatedAt=ago(95);
+
+  // 2 — Series A Pitch (Lumen Labs): short script → Pre-production
+  const a=mk('Lumen Labs','Series A Pitch Animation','10431','var(--grape)');
+  a.scriptHtml=scenes([['Open','We started with one stubborn question.','Founder to camera, soft morning light.'],['Problem','The old way is slow, manual, and expensive.','Paperwork stacks up and overwhelms the frame.']]);
+  a.scripts={activeId:'sv1',versions:[ver(1,'draft')]};
+  a.updatedAt=ago(1440);
+
+  // 3 — Product Launch Sizzle (Cadence): deliverables
+  const c=mk('Cadence','Product Launch Sizzle','10422','var(--teal)');
+  c.deliverables=[{id:1,name:'sizzle_v3_4k.mp4',size:0,meta:'final master',addedAt:ago(240)},{id:2,name:'sizzle_9x16_socials.mp4',size:0,meta:'vertical cut',addedAt:ago(240)}];
+  c.updatedAt=ago(240);
+
+  // 4 — App Tutorial Series (Tidal): brainstorm only
+  const t=mk('Tidal','App Tutorial Series','10440','var(--tang)');
+  t.brainstorm={nextId:3,panX:60,panY:60,scale:1,cards:[
+    {id:1,type:'note',x:60,y:60,r:-2,tint:'#D6E4FF',text:'One tip per video · 30s each'},
+    {id:2,type:'idea',x:300,y:80,r:0,tag:'angle',text:'“You already know how — we just made it faster.”'}
+  ]};
+  t.updatedAt=ago(2880);
+
+  // 5 — Brand Motion System (Foundry): approved → Production
+  const fo=mk('Foundry','Brand Motion System','10417','var(--pink)');
+  fo.scriptHtml=scenes([['Logo build','Marks snap together in rhythm.','Grid resolves into the logo.'],['Endcard','One system, every screen.','Tagline lands on brand color.']]);
+  fo.scripts={activeId:'sv1',versions:[ver(1,'approved')]};
+  fo.updatedAt=ago(50);
+
+  // 6 — Conference Opener (Assembly): deliverables
+  const as=mk('Assembly','Conference Opener','10409','var(--ocean)');
+  as.deliverables=[{id:1,name:'opener_stage_16x9.mov',size:0,meta:'stage master',addedAt:ago(4320)}];
+  as.updatedAt=ago(4320);
+
+  boards.push(f,a,c,t,fo,as);
+  try{ localStorage.setItem('pb_examples_v1','1'); }catch(e){}
+  if(typeof autoSave==='function')autoSave();
+}
 function boardStage(b){
   if(!b) return 0;
   if(b.archived) return 4;                                   // Archived
