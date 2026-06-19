@@ -755,6 +755,28 @@ body.light .strip-thumb{background:#e8e4de;border-color:#d0ccc6;}
 .modal-bg.open{display:flex;}
 .modal{background:#1e1e1e;border-radius:14px;border:1px solid rgba(255,255,255,0.16);padding:22px;width:390px;max-width:95vw;}
 body.light .modal{background:#fff;border-color:#ddd;}
+/* recently-deleted (trash) modal + sidebar count badge */
+.sidebar-trash-count{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:#fff;background:var(--red);min-width:16px;height:16px;border-radius:8px;padding:0 5px;display:none;align-items:center;justify-content:center;}
+.sidebar-trash-count.show{display:inline-flex;}
+.trash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.trash-sub{margin:5px 0 0;font-size:12.5px;line-height:1.45;color:var(--ink-soft);}
+.trash-x{appearance:none;border:none;background:transparent;cursor:pointer;font-size:18px;line-height:1;color:var(--ink-faint);width:30px;height:30px;border-radius:8px;flex:none;}
+.trash-x:hover{background:var(--bg-2);color:var(--ink);}
+.trash-list{display:flex;flex-direction:column;gap:8px;max-height:48vh;overflow-y:auto;}
+.trash-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--surface);}
+.trash-row-main{flex:1;min-width:0;}
+.trash-row-name{font-weight:600;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.trash-row-meta{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink-faint);margin-top:3px;}
+.trash-row-actions{display:flex;gap:6px;flex:none;}
+.trash-btn{appearance:none;border:1px solid var(--line);background:var(--bg);cursor:pointer;font:inherit;font-size:12px;font-weight:600;padding:7px 12px;border-radius:9px;color:var(--ink-soft);transition:background .12s,color .12s,border-color .12s;}
+.trash-btn:hover{background:var(--bg-2);color:var(--ink);}
+.trash-btn.restore{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 40%,var(--line));}
+.trash-btn.restore:hover{background:color-mix(in srgb,var(--accent) 12%,transparent);}
+.trash-btn.danger:hover{background:color-mix(in srgb,var(--red) 14%,transparent);color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,var(--line));}
+.trash-empty{text-align:center;padding:30px 16px;color:var(--ink-faint);font-size:13px;line-height:1.5;}
+.trash-foot{margin-top:14px;display:flex;justify-content:flex-end;min-height:18px;}
+.trash-empty-all{appearance:none;border:none;background:transparent;cursor:pointer;font:inherit;font-size:12px;font-weight:600;color:var(--ink-faint);padding:7px 10px;border-radius:9px;}
+.trash-empty-all:hover{color:var(--red);background:color-mix(in srgb,var(--red) 10%,transparent);}
 .modal h2{font-size:14px;font-weight:600;margin-bottom:14px;color:#eee;}
 body.light .modal h2{color:#111;}
 .modal-label{font-size:10px;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
@@ -2111,6 +2133,7 @@ body:not(.light) #hub-view{background:var(--bg);}
       <button class="sidebar-bottom-btn" id="sidebar-trash-btn" title="Recently deleted projects — kept 30 days">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2.4 3.6h9.2M5.2 3.6V2.5a1 1 0 0 1 1-1h1.6a1 1 0 0 1 1 1v1.1M3.4 3.6l.5 7.7a1.1 1.1 0 0 0 1.1 1h4a1.1 1.1 0 0 0 1.1-1l.5-7.7M5.8 6v3.4M8.2 6v3.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Recently deleted</span>
+        <span class="sidebar-trash-count" id="sidebar-trash-count"></span>
       </button>
       <button class="sidebar-bottom-btn" id="sidebar-account-btn">
         <div class="sidebar-avatar">JM</div>
@@ -2994,6 +3017,21 @@ body:not(.light) #hub-view{background:var(--bg);}
   </div>
 </div>
 
+<!-- ── RECENTLY DELETED (trash) MODAL ── -->
+<div class="modal-bg" id="trash-modal-bg">
+  <div class="modal trash-modal" style="width:470px;">
+    <div class="trash-head">
+      <div>
+        <h2 style="margin:0;">Recently deleted</h2>
+        <p class="trash-sub">Projects rest here for 30 days, then they're permanently deleted.</p>
+      </div>
+      <button class="trash-x" id="trash-close" aria-label="close">✕</button>
+    </div>
+    <div class="trash-list" id="trash-list"></div>
+    <div class="trash-foot" id="trash-foot"></div>
+  </div>
+</div>
+
 <div id="img-picker-overlay" style="display:none;" class="img-picker-overlay">
   <div class="img-picker-box">
     <div class="img-picker-title">copy image from frame</div>
@@ -3275,6 +3313,7 @@ async function cloudSaveAttempt(state,tries){
 }
 
 let boards=[];
+let trash=[];   // soft-deleted projects ("Recently deleted") — auto-purged after 30 days
 let activeBoardId=null;
 let nextBoardId=1;
 let nextFrameId=1;
@@ -3380,13 +3419,14 @@ function loadFromBoard(){
   applyScriptLockState();
   applyStoryboardLockState();
 }
-function getState(){syncToBoard();return{boards,activeBoardId,nextBoardId,nextFrameId,nextVersionId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
+function getState(){syncToBoard();return{boards,trash,activeBoardId,nextBoardId,nextFrameId,nextVersionId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
 function stripImages(state){
   const strip=f=>({...f,image:null,annLayer:null});
-  return{...state,boards:state.boards.map(b=>({...b,
+  const stripBoard=b=>({...b,
     frames:(b.frames||[]).map(strip),
     storyboards:b.storyboards?{...b.storyboards,versions:b.storyboards.versions.map(v=>v.frames?{...v,frames:v.frames.map(strip)}:v)}:b.storyboards
-  }))};
+  });
+  return{...state,boards:(state.boards||[]).map(stripBoard),trash:(state.trash||[]).map(stripBoard)};
 }
 // Shrink an imported image: cap the longest edge at 1600px and re-encode as JPEG.
 // A 12-megapixel phone photo (~6MB of base64) becomes ~200KB, which keeps the
@@ -3500,6 +3540,8 @@ function downloadBackup(){
 function loadState(state){
   boards=state.boards||[];
   boards.forEach(b=>{if(!b.scriptHtml)b.scriptHtml='';});
+  trash=(state.trash||[]).filter(t=>t&&t.deletedAt&&(Date.now()-t.deletedAt)<30*864e5);  // drop anything past its 30-day window
+  if(typeof updateTrashCount==='function')updateTrashCount();
   nextVersionId=state.nextVersionId||1;
   boards.forEach(migrateBoardVersions);
   activeBoardId=state.activeBoardId||boards[0]?.id;
@@ -4213,10 +4255,17 @@ async function init(){
     settingsPanel.classList.remove('open');
   });
 
-  // Recently-deleted (trash) — button only for now; wiring comes later
-  document.getElementById('sidebar-trash-btn')?.addEventListener('click',()=>{
-    showToast('Recently deleted — coming soon (deleted projects will rest here 30 days)');
+  // Recently-deleted (trash) — open the bin, restore / delete-forever / empty
+  document.getElementById('sidebar-trash-btn')?.addEventListener('click',openTrashModal);
+  document.getElementById('trash-close')?.addEventListener('click',closeTrashModal);
+  const _trashBg=document.getElementById('trash-modal-bg');
+  if(_trashBg) _trashBg.addEventListener('click',e=>{
+    if(e.target===_trashBg){ closeTrashModal(); return; }
+    const btn=e.target.closest('[data-act]');
+    if(btn){ const id=btn.dataset.id; if(btn.dataset.act==='restore')trashRestore(id); else if(btn.dataset.act==='purge')trashPurge(id); return; }
+    if(e.target.id==='trash-empty-all'){ trashEmptyAll(); return; }
   });
+  updateTrashCount();
 
   // ── SIDEBAR CALENDAR BUTTON ──
   // ── GLOBAL CALENDAR (topbar button) — calendar is app-wide, openable from any view ──
@@ -5327,13 +5376,62 @@ function showHome(){
 function deleteBoard(id){
   if(boards.length<=1){showToast("can't delete the only project");return;}
   const b=boards.find(x=>x.id===id);
-  const name=b?b.name:'this project';
-  if(!confirm(`Permanently delete "${name}"?\n\nThis cannot be undone.`))return;
-  boards=boards.filter(b=>b.id!==id);
+  const name=b?((b.meta&&b.meta.project)||b.name):'this project';
+  if(!confirm(`Move "${name}" to Recently deleted?\n\nYou can restore it within 30 days from the trash at the bottom of the sidebar.`))return;
+  boards=boards.filter(x=>x.id!==id);
+  if(b){ b.deletedAt=Date.now(); trash.push(b); }
   if(activeBoardId===id)activeBoardId=boards[boards.length-1].id;
   renderTabs();loadFromBoard();renderAll();autoSave();
   if(typeof renderProjectList==='function')renderProjectList();
+  if(typeof renderHome==='function')renderHome();
+  if(typeof updateTrashCount==='function')updateTrashCount();
 }
+
+// ── RECENTLY DELETED (trash) ──────────────────────────────────────────────
+const TRASH_TTL=30*864e5;  // 30 days in ms
+function trashPurgeExpired(){ const cut=Date.now()-TRASH_TTL; const n=trash.length; trash=trash.filter(t=>t&&t.deletedAt&&t.deletedAt>cut); return n-trash.length; }
+function updateTrashCount(){ const el=document.getElementById('sidebar-trash-count'); if(!el)return; trashPurgeExpired(); const n=trash.length; el.textContent=n?String(n):''; el.classList.toggle('show',n>0); }
+function openTrashModal(){ trashPurgeExpired(); renderTrashList(); const bg=document.getElementById('trash-modal-bg'); if(bg)bg.classList.add('open'); }
+function closeTrashModal(){ const bg=document.getElementById('trash-modal-bg'); if(bg)bg.classList.remove('open'); }
+function renderTrashList(){
+  const list=document.getElementById('trash-list'), foot=document.getElementById('trash-foot');
+  if(!list)return;
+  if(!trash.length){ list.innerHTML='<div class="trash-empty">Nothing here yet.<br>Deleted projects rest here for 30 days so you can bring them back.</div>'; if(foot)foot.innerHTML=''; return; }
+  const sorted=[...trash].sort((a,b)=>(b.deletedAt||0)-(a.deletedAt||0));
+  list.innerHTML=sorted.map(t=>{
+    const left=Math.max(0,Math.ceil((TRASH_TTL-(Date.now()-(t.deletedAt||0)))/864e5));
+    const nm=(t.meta&&t.meta.project)||t.name||'Untitled';
+    return '<div class="trash-row"><div class="trash-row-main"><div class="trash-row-name">'+verEsc(nm)+'</div>'
+      +'<div class="trash-row-meta">deleted '+homeTimeAgo(t.deletedAt)+' · '+left+(left===1?' day':' days')+' left</div></div>'
+      +'<div class="trash-row-actions"><button class="trash-btn restore" data-act="restore" data-id="'+verEsc(t.id)+'">Restore</button>'
+      +'<button class="trash-btn danger" data-act="purge" data-id="'+verEsc(t.id)+'">Delete forever</button></div></div>';
+  }).join('');
+  if(foot)foot.innerHTML='<button class="trash-empty-all" id="trash-empty-all">Empty trash</button>';
+}
+function trashRestore(id){
+  const i=trash.findIndex(t=>String(t.id)===String(id)); if(i<0)return;
+  const b=trash.splice(i,1)[0]; delete b.deletedAt;
+  if(typeof migrateBoardVersions==='function'){try{migrateBoardVersions(b);}catch(e){}}
+  boards.push(b);
+  if(typeof autoSave==='function')autoSave();
+  if(typeof renderHome==='function')renderHome();
+  if(typeof renderProjectList==='function')renderProjectList();
+  updateTrashCount(); renderTrashList();
+  showToast('Restored "'+((b.meta&&b.meta.project)||b.name||'project')+'"');
+}
+function trashPurge(id){
+  const t=trash.find(x=>String(x.id)===String(id)); const nm=(t&&((t.meta&&t.meta.project)||t.name))||'this project';
+  if(!confirm('Permanently delete "'+nm+'"?\n\nThis cannot be undone.'))return;
+  trash=trash.filter(x=>String(x.id)!==String(id));
+  if(typeof autoSave==='function')autoSave();
+  updateTrashCount(); renderTrashList();
+}
+function trashEmptyAll(){
+  if(!trash.length)return;
+  if(!confirm('Permanently delete all '+trash.length+' project'+(trash.length===1?'':'s')+' in Recently deleted?\n\nThis cannot be undone.'))return;
+  trash=[]; if(typeof autoSave==='function')autoSave(); updateTrashCount(); renderTrashList();
+}
+
 function renderTabs(){
   const bar=$('tabsbar');const addBtn=$('tab-add-btn');
   bar.querySelectorAll('.board-tab').forEach(t=>t.remove());
