@@ -1909,6 +1909,18 @@ body:not(.light) .bn-pad .bn-pad-head{background:color-mix(in srgb,var(--accent)
 .bn-tag{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--ocean);background:color-mix(in srgb,var(--ocean) 14%,#fff);padding:3px 7px;border-radius:6px;flex:none;}
 .bn-frame .bn-tag{color:var(--ink-soft);background:var(--bg-2);}
 
+/* file card: pdf / docx / other documents */
+.bn-file{width:224px;}
+.bn-file .bn-fthumb{height:150px;overflow:hidden;position:relative;background:var(--bg-2);display:flex;align-items:center;justify-content:center;}
+.bn-file .bn-fthumb canvas{width:100%;height:100%;object-fit:cover;display:block;}
+.bn-file .bn-fdoc{width:100%;height:100%;background:#fff;color:#333;padding:10px 12px;overflow:hidden;font-family:Georgia,'Times New Roman',serif;font-size:8.5px;line-height:1.55;text-align:left;white-space:pre-wrap;}
+body:not(.light) .bn-file .bn-fdoc{background:#f5f2ec;}
+.bn-file .bn-ficon{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:34px;line-height:1;}
+.bn-file .bn-fext{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);}
+.bn-file .bn-fmsg{font-size:10px;color:var(--ink-faint);}
+.bn-file .bn-fhint{position:absolute;left:0;right:0;bottom:0;padding:4px;background:rgba(0,0,0,.45);color:#fff;font-size:9.5px;text-align:center;opacity:0;transition:opacity .15s;pointer-events:none;}
+.bn-file .bn-fthumb:hover .bn-fhint{opacity:1;}
+
 /* link card */
 .bn-link{width:236px;display:flex;gap:12px;align-items:center;padding:14px;}
 .bn-link .bn-licon{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;background:color-mix(in srgb,var(--ocean) 14%,#fff);color:var(--ocean);}
@@ -2257,7 +2269,7 @@ body:not(.light) #hub-view{background:var(--bg);}
       <button class="bn-fit" id="bn-zfit">Fit</button>
     </div>
 
-    <input type="file" id="bn-file" accept="image/*" multiple hidden>
+    <input type="file" id="bn-file" accept="image/*,.pdf,.doc,.docx,.txt,.rtf,.md,.xls,.xlsx,.csv,.ppt,.pptx,.key,.zip,.ai,.psd,.fig,.sketch,.mp3,.wav,.aif,.aiff,.mp4,.mov" multiple hidden>
     <div class="bn-toast" id="bn-toast"></div>
   </div>
 </div>
@@ -6606,7 +6618,7 @@ function showEditorColorPicker(anchorEl,callback){
   function loadFromBoard(){
     const b=(typeof activeBoard==='function')?activeBoard():null;
     const d=(b&&b.brainstorm)||{};
-    const KNOWN={note:1,pad:1,idea:1,ref:1,frame:1,link:1,swatch:1,group:1};
+    const KNOWN={note:1,pad:1,idea:1,ref:1,frame:1,link:1,swatch:1,group:1,file:1};
     cards=Array.isArray(d.cards)?d.cards.filter(c=>c&&KNOWN[c.type]):[];
     nextId=d.nextId||(cards.reduce((m,c)=>Math.max(m,c.id||0),0)+1)||1;
     scale=d.scale||1; panX=d.panX!==undefined?d.panX:40; panY=d.panY!==undefined?d.panY:40;
@@ -6645,12 +6657,50 @@ function showEditorColorPicker(anchorEl,callback){
       const inner=c.image?`<img src="${c.image}" alt="">`:(c.type==='frame'?ART.frame:ART.ref);
       const tag=c.type==='frame'?'frame':'ref';
       node=el(`<div class="bn-card bn-ref ${c.type==='frame'?'bn-frame':''}" data-id="${c.id}" tabindex="0"><div class="bn-thumb">${inner}</div><div class="bn-cap"><span class="bn-tag">${tag}</span> <span class="editable">${esc(c.cap||(c.type==='frame'?'Storyboard frame':'Reference'))}</span></div></div>`);
+    } else if(c.type==='file'){
+      node=el(`<div class="bn-card bn-ref bn-file" data-id="${c.id}" tabindex="0"><div class="bn-fthumb"></div><div class="bn-cap"><span class="bn-tag">${esc(fileExt(c)||'file')}</span> <span class="editable">${esc(c.cap||c.filename||'File')}</span></div></div>`);
     } else { return null; }
     node.style.left=(c.x||0)+'px'; node.style.top=(c.y||0)+'px';
     node.style.setProperty('--r',(c.r||0)+'deg');
     canvas.appendChild(node);
     if(c.type==='note') fitNote(node);
+    if(c.type==='file') renderFilePreview(c,node.querySelector('.bn-fthumb'));
     return node;
+  }
+
+  // ── file card previews (pdf via pdf.js, docx via mammoth, icon otherwise) ──
+  const FILE_ICONS={pdf:'📕',doc:'📝',docx:'📝',txt:'📄',rtf:'📄',md:'📄',xls:'📊',xlsx:'📊',csv:'📊',ppt:'📋',pptx:'📋',key:'📋',zip:'📦',ai:'🎨',psd:'🎨',fig:'🎨',sketch:'🎨',mp3:'🎵',wav:'🎵',aif:'🎵',aiff:'🎵',mp4:'🎬',mov:'🎬'};
+  function fileExt(c){ return String(c.filename||'').split('.').pop().toLowerCase(); }
+  function dataURLBytes(durl){ const b=atob(String(durl).split(',')[1]||''); const u=new Uint8Array(b.length); for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i); return u; }
+  function renderFilePreview(c,box){
+    if(!box)return;
+    const ext=fileExt(c);
+    const hint='<div class="bn-fhint">double-click to open</div>';
+    const iconHTML=`<div class="bn-ficon"><span>${FILE_ICONS[ext]||'📄'}</span><span class="bn-fext">.${esc(ext)}</span></div>`+hint;
+    if(!c.fileData){ box.innerHTML=iconHTML; return; }
+    if(ext==='pdf'&&window.pdfjsLib){
+      box.innerHTML='<div class="bn-fmsg">loading preview…</div>';
+      try{
+        pdfjsLib.getDocument({data:dataURLBytes(c.fileData)}).promise.then(pdf=>pdf.getPage(1)).then(page=>{
+          const v1=page.getViewport({scale:1});
+          const s=Math.max(224/v1.width,150/v1.height)*2;   // cover the thumb, 2x for sharpness
+          const v=page.getViewport({scale:s});
+          const cv=document.createElement('canvas'); cv.width=v.width; cv.height=v.height;
+          // intent:'print' renders without requestAnimationFrame, so previews finish even in background tabs
+          return page.render({canvasContext:cv.getContext('2d'),viewport:v,intent:'print'}).promise.then(()=>{ box.innerHTML=hint; box.insertBefore(cv,box.firstChild); });
+        }).catch(()=>{ box.innerHTML=iconHTML; });
+      }catch(err){ box.innerHTML=iconHTML; }
+    } else if(ext==='docx'&&window.mammoth){
+      box.innerHTML='<div class="bn-fmsg">loading preview…</div>';
+      try{
+        mammoth.extractRawText({arrayBuffer:dataURLBytes(c.fileData).buffer}).then(res=>{
+          const txt=(res.value||'').trim();
+          box.innerHTML=txt?`<div class="bn-fdoc">${esc(txt.slice(0,700))}${txt.length>700?'…':''}</div>`+hint:iconHTML;
+        }).catch(()=>{ box.innerHTML=iconHTML; });
+      }catch(err){ box.innerHTML=iconHTML; }
+    } else {
+      box.innerHTML=iconHTML;
+    }
   }
   function renderAll(){ canvas.innerHTML=''; cards.forEach(build); if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>canvas.querySelectorAll('.bn-note').forEach(fitNote)); }
   function getCard(id){ return cards.find(c=>String(c.id)===String(id)); }
@@ -6720,7 +6770,7 @@ function showEditorColorPicker(anchorEl,callback){
     else if(c.type==='group'){ const l=e.querySelector('.bn-glabel');if(l)c.label=l.innerText.trim(); }
     else if(c.type==='link'){ const t=e.querySelector('.bn-lt');if(t)c.title=t.innerText.trim(); const u=e.querySelector('.bn-lu');if(u)c.url=u.innerText.trim(); }
     else if(c.type==='swatch'){ const cap=e.querySelector('.bn-cap .editable');if(cap)c.title=cap.innerText.trim(); }
-    else if(c.type==='ref'||c.type==='frame'){ const cap=e.querySelector('.bn-cap .editable');if(cap)c.cap=cap.innerText.trim(); }
+    else if(c.type==='ref'||c.type==='frame'||c.type==='file'){ const cap=e.querySelector('.bn-cap .editable');if(cap)c.cap=cap.innerText.trim(); }
   }
 
   // ── add cards ──
@@ -6743,15 +6793,47 @@ function showEditorColorPicker(anchorEl,callback){
   if(dock) dock.addEventListener('click',e=>{ const b=e.target.closest('button[data-bn-add]'); if(b)addAt(b.dataset.bnAdd); });
   if(emptyEl) emptyEl.addEventListener('click',e=>{ const b=e.target.closest('button[data-bn-add]'); if(b)addAt(b.dataset.bnAdd); });
 
-  // ── image / reference cards (file picker, desktop drop, cross-panel transfer) ──
+  // ── image / reference / file cards (file picker, desktop drop, cross-panel transfer) ──
   function addImageRef(src,cap){ const p=center(); add({type:'ref',x:p.x-104,y:p.y-82,r:(Math.random()*4-2),image:src,cap:cap||'Reference'}); }
   window.pbAddImageCard=function(src,title){ addImageRef(src,title); };
   function readImg(file){ if(!file||!/^image\//.test(file.type||''))return; const rd=new FileReader(); rd.onload=()=>addImageRef(rd.result,(file.name||'reference').replace(/\.[^.]+$/,'')); rd.readAsDataURL(file); }
+  const FILE_MAX=8*1024*1024;   // docs aren't compressed like images, so cap them to protect the cloud save
+  function addFileCard(file,i){
+    if(file.size>FILE_MAX) return false;
+    const p=center();
+    const c=add({type:'file',x:p.x-112+(i||0)*26,y:p.y-100+(i||0)*26,r:(Math.random()*4-2),filename:file.name,cap:(file.name||'file').replace(/\.[^.]+$/,''),fileData:null});
+    const rd=new FileReader();
+    rd.onload=()=>{ c.fileData=rd.result; renderFilePreview(c,canvas.querySelector(`.bn-card[data-id="${c.id}"] .bn-fthumb`)); save(); };
+    rd.readAsDataURL(file);
+    return true;
+  }
+  function ingestFiles(files){
+    let nImg=0,nFile=0,nBig=0;
+    files.forEach(f=>{
+      if(/^image\//.test(f.type||'')){ readImg(f); nImg++; }
+      else if(addFileCard(f,nFile)) nFile++;
+      else nBig++;
+    });
+    const parts=[];
+    if(nImg)parts.push(nImg+' reference'+(nImg>1?'s':''));
+    if(nFile)parts.push(nFile+' file'+(nFile>1?'s':''));
+    let msg=parts.length?'added '+parts.join(' + '):'';
+    if(nBig)msg+=(msg?' · ':'')+nBig+' skipped (over 8MB)';
+    if(msg)toast(msg);
+  }
   const fileInput=document.getElementById('bn-file');
-  if(fileInput) fileInput.addEventListener('change',e=>{ [...e.target.files].forEach(readImg); e.target.value=''; });
+  if(fileInput) fileInput.addEventListener('change',e=>{ ingestFiles([...e.target.files]); e.target.value=''; });
   vp.addEventListener('dragover',e=>{ e.preventDefault(); vp.classList.add('bn-dragover'); });
   vp.addEventListener('dragleave',e=>{ if(e.target===vp)vp.classList.remove('bn-dragover'); });
-  vp.addEventListener('drop',e=>{ e.preventDefault(); vp.classList.remove('bn-dragover'); const files=[...(e.dataTransfer&&e.dataTransfer.files||[])]; const imgs=files.filter(f=>/^image\//.test(f.type||'')); if(imgs.length){ imgs.forEach(readImg); toast('added '+imgs.length+' reference'+(imgs.length>1?'s':'')); } });
+  vp.addEventListener('drop',e=>{ e.preventDefault(); vp.classList.remove('bn-dragover'); ingestFiles([...(e.dataTransfer&&e.dataTransfer.files||[])]); });
+
+  // double-click a file card's preview → open/download the original
+  canvas.addEventListener('dblclick',e=>{
+    const th=e.target.closest('.bn-fthumb'); if(!th)return;
+    const cardEl=th.closest('.bn-card'); const c=cardEl&&getCard(cardEl.dataset.id);
+    if(!c||!c.fileData)return;
+    const a=document.createElement('a'); a.href=c.fileData; a.download=c.filename||'file'; a.click();
+  });
 
   // ── init ──
   loadFromBoard();
