@@ -4210,6 +4210,9 @@ async function init(){
       el.style.minWidth= isOpen ? '120px' : '0';
       el.style.maxWidth= isOpen ? '' : '0';
     });
+    // storyboard width changes with any panel layout change → re-fit section
+    // textareas once the .22s flex transition settles
+    if(typeof resizeAllSectionTAs==='function')setTimeout(resizeAllSectionTAs,260);
     // Dividers: show only between two open panels
     document.querySelectorAll('.sp-divider').forEach(div=>{
       const pair=SP_DIV_PAIRS[div.dataset.div];
@@ -4306,6 +4309,7 @@ async function init(){
         document.removeEventListener('mousemove',onMove);
         document.removeEventListener('mouseup',onUp);
         spSave();
+        if(typeof resizeAllSectionTAs==='function')resizeAllSectionTAs();
       }
       document.addEventListener('mousemove',onMove);
       document.addEventListener('mouseup',onUp);
@@ -5619,7 +5623,22 @@ function updateRuntime(){
   if(total===0){el.style.color='#555';parent.style.color='#555';}
   else{el.style.color='#ccc';parent.style.color='#ccc';}
 }
-function autoResize(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
+function autoResize(ta){
+  if(!ta.clientWidth)return;   // hidden/collapsed panel → scrollHeight is meaningless; skip until visible
+  ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';
+}
+// Re-fit every section textarea whenever the storyboard's width changes
+// (panel opened/closed, divider dragged, window resized) — heights measured
+// mid-transition or while hidden are wrong and were previously never corrected.
+function resizeAllSectionTAs(){document.querySelectorAll('#board .section-ta').forEach(autoResize);}
+(function(){
+  let t=null;
+  const defer=()=>{clearTimeout(t);t=setTimeout(resizeAllSectionTAs,80);};
+  window.addEventListener('resize',defer);
+  // panel open/close animates flex/width for .22s — re-fit when it settles
+  const sb=document.getElementById('sp-storyboard');
+  if(sb)sb.addEventListener('transitionend',defer);
+})();
 
 function openFrameMenu(btn,frameId,frameIdx){
   document.querySelectorAll('.frame-menu.open').forEach(m=>m.classList.remove('open'));
@@ -7527,7 +7546,13 @@ function showEditorColorPicker(anchorEl,callback){
   // all keep working on the same HTML string.
   let spScenes=[];           // [{slug,vo,vis}]  (vo/vis hold inline HTML)
   let spWpm=150;
-  const SP_TARGET=75;        // target runtime seconds (echoes the brief)
+  // target runtime — per board (b.scriptTargetSec), 75s default; click the time in the budget bar to change
+  function spTarget(){ const b=activeBoard(); const t=b&&+b.scriptTargetSec; return (isFinite(t)&&t>0)?t:75; }
+  function spParseTime(s){
+    s=String(s==null?'':s).trim();
+    const m=s.match(/^(\d+):([0-5]?\d)$/); if(m)return +m[1]*60+ +m[2];
+    const n=parseFloat(s.replace(/s(ec(onds?)?)?$/i,'')); return (isFinite(n)&&n>0)?Math.round(n):0;
+  }
   function spFmtTime(s){ s=Math.round(s); return Math.floor(s/60)+':'+String(Math.max(0,s%60)).padStart(2,'0'); }
   function spWordCount(html){ const d=document.createElement('div'); d.innerHTML=html||''; const t=(d.innerText||'').trim(); return t?t.split(/\s+/).length:0; }
   function spEscAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -7618,15 +7643,16 @@ function showEditorColorPicker(anchorEl,callback){
       const nd=spEl('sp-rail')?.querySelector(`.sp-nav[data-i="${i}"] .sp-nav-dur`); if(nd) nd.textContent=spFmtTime(secs);
       totalW+=w;
     });
-    const totalS=totalW/(spWpm/60), dev=Math.abs(totalS-SP_TARGET)/SP_TARGET;
+    const tgt=spTarget();
+    const totalS=totalW/(spWpm/60), dev=Math.abs(totalS-tgt)/tgt;
     const run=spEl('sp-run'),bar=spEl('sp-bar'),st=spEl('sp-bstatus'),sc=spEl('sp-sc'),tEl=spEl('sp-target');
     if(run) run.textContent=spFmtTime(totalS);
     if(sc) sc.textContent=spScenes.length+(spScenes.length===1?' scene':' scenes');
-    if(tEl) tEl.textContent=spFmtTime(SP_TARGET);
+    if(tEl) tEl.textContent=spFmtTime(tgt);
     const col=dev<=0.10?'#2FAE5E':dev<=0.22?'#E8C32B':dev<=0.40?'#E8932B':'#E5484D';
-    if(bar){ bar.style.width=Math.min(100,(totalS/SP_TARGET)*100)+'%'; bar.style.background=col; }
+    if(bar){ bar.style.width=Math.min(100,(totalS/tgt)*100)+'%'; bar.style.background=col; }
     if(run) run.style.color=col;
-    if(st){ const diff=Math.round(totalS-SP_TARGET); st.textContent=dev<=0.10?'on target':(diff>0?diff+'s over':(-diff)+'s under'); st.style.color=col; }
+    if(st){ const diff=Math.round(totalS-tgt); st.textContent=dev<=0.10?'on target':(diff>0?diff+'s over':(-diff)+'s under'); st.style.color=col; }
   }
   let spIO=null;
   function spObserveScenes(){
@@ -7652,6 +7678,22 @@ function showEditorColorPicker(anchorEl,callback){
     if(rail&&!rail._wired){ rail._wired=true; rail.addEventListener('click',e=>{ if(e.target.closest('#sp-rail-add')){ spAddScene(); return; } const n=e.target.closest('.sp-nav'); if(n){ const s=document.querySelector(`#sp-doc .sp-scene[data-i="${n.dataset.i}"]`); if(s) s.scrollIntoView({behavior:'smooth',block:'start'}); } }); }
     const pace=document.querySelector('#sp-budget .sp-b-pace');
     if(pace&&!pace._wired){ pace._wired=true; pace.addEventListener('click',e=>{ const b=e.target.closest('button[data-wpm]'); if(!b) return; spWpm=+b.dataset.wpm; pace.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b)); spUpdateBudget(); }); }
+    const tgtEl=spEl('sp-target');
+    if(tgtEl&&!tgtEl._wired){ tgtEl._wired=true;
+      tgtEl.style.cursor='pointer';
+      tgtEl.style.borderBottom='1px dashed currentColor';
+      tgtEl.title='target runtime — click to change';
+      tgtEl.addEventListener('click',()=>{
+        const b=activeBoard(); if(!b) return;
+        const raw=prompt('target runtime for this project (m:ss or seconds):',spFmtTime(spTarget()));
+        if(raw==null) return;
+        const sec=spParseTime(raw);
+        if(!sec){ showToast("couldn't read that — try 1:15 or 75"); return; }
+        b.scriptTargetSec=sec;
+        autoSave(); spUpdateBudget();
+        showToast('target runtime → '+spFmtTime(sec));
+      });
+    }
     const fdock=spEl('sp-fdock');
     if(fdock&&!fdock._wired){ fdock._wired=true;
       fdock.addEventListener('mousedown',e=>{ if(e.target.closest('button')) e.preventDefault(); });
