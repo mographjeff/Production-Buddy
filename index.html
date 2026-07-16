@@ -343,6 +343,8 @@ body.light .script-btn:hover{background:var(--bg-2);color:var(--ink);box-shadow:
 body.light .script-btn:hover{background:var(--bg-2);color:var(--ink);}
 .script-btn.primary{background:var(--accent);color:#fff !important;border-color:transparent;}
 .script-btn.primary:hover{filter:brightness(1.06);}
+.script-btn.sync-on{background:rgba(59,130,246,0.16);color:#3b82f6 !important;box-shadow:inset 0 0 0 1.5px rgba(59,130,246,0.45);}
+body.light .script-btn.sync-on{background:rgba(59,130,246,0.1);color:#2563eb !important;box-shadow:inset 0 0 0 1.5px rgba(59,130,246,0.4);}
 body.light .script-btn.primary{background:var(--accent);color:#fff !important;border-color:transparent;}
 body.light .script-btn.primary:hover{filter:brightness(1.06);}
 #script-file-input{display:none;}
@@ -1823,7 +1825,7 @@ body.light .sp-budget{background:rgba(251,250,248,.92);backdrop-filter:blur(10px
 .sp-scene:first-child{border-top:none;}
 .sp-scene-head{display:flex;align-items:center;gap:11px;margin-bottom:12px;}
 .sp-scene-no{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#fff;background:var(--accent);padding:4px 9px;border-radius:8px;flex:none;}
-.sp-scene-slug{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.01em;outline:none;flex:1;min-width:0;color:var(--ink);}
+.sp-scene-slug{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:calc(16px*var(--sp-zoom,1));letter-spacing:-.01em;outline:none;flex:1;min-width:0;color:var(--ink);}
 .sp-scene-dur{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:var(--ink-soft);flex:none;}
 .sp-scene-del{appearance:none;border:none;cursor:pointer;width:26px;height:26px;border-radius:8px;flex:none;background:transparent;color:var(--ink-faint);font-size:18px;line-height:1;opacity:0;transition:opacity .15s,background .15s,color .15s;}
 .sp-scene:hover .sp-scene-del{opacity:1;}
@@ -1832,8 +1834,8 @@ body.light .sp-budget{background:rgba(251,250,248,.92);backdrop-filter:blur(10px
 .sp-col-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:6px;}
 .sp-vis-col{position:relative;padding-left:22px;}
 .sp-vis-col::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:2px;border-radius:2px;background:var(--line);}
-.sp-vo{font-size:16px;line-height:1.6;color:var(--ink);outline:none;}
-.sp-vis{font-size:13.5px;line-height:1.55;color:var(--ink-soft);outline:none;}
+.sp-vo{font-size:calc(16px*var(--sp-zoom,1));line-height:1.6;color:var(--ink);outline:none;}
+.sp-vis{font-size:calc(13.5px*var(--sp-zoom,1));line-height:1.55;color:var(--ink-soft);outline:none;}
 .sp-ed:empty:before{content:attr(data-ph);color:var(--ink-faint);opacity:.7;pointer-events:none;}
 .sp-add-scene{appearance:none;border:1.5px dashed var(--line);background:transparent;cursor:pointer;font:inherit;display:block;width:100%;margin-top:16px;padding:13px;border-radius:14px;color:var(--ink-soft);font-weight:600;font-size:14px;transition:border-color .15s,color .15s,transform .14s var(--spring);}
 .sp-add-scene:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px);}
@@ -2350,10 +2352,15 @@ body:not(.light) #hub-view{background:var(--bg);}
     <div class="spacer"></div>
     <div id="sp-word-count" title="word count">0 words</div>
     <div class="divider-v"></div>
+    <button class="script-btn" id="sp-zoom-out" title="smaller script text" style="padding:8px 10px;">A−</button>
+    <span id="sp-zoom-label" title="script text size — click to reset" style="font-size:10px;color:#888;min-width:34px;text-align:center;cursor:pointer;">100%</span>
+    <button class="script-btn" id="sp-zoom-in" title="larger script text" style="padding:8px 10px;">A+</button>
+    <div class="divider-v"></div>
     <button class="script-btn" id="sp-find-btn" title="find &amp; replace (Ctrl+H)">find</button>
     <label class="script-btn" id="sp-import-btn" style="position:relative;overflow:hidden;cursor:pointer;">import
       <input type="file" id="sp-import-input" accept=".docx,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
     </label>
+    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced as you write; click again to stop syncing">→ storyboard</button>
     <button class="script-btn primary" id="sp-share-client-btn" title="share a read-only link with your client &amp; export a PDF">Share with client</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -7428,6 +7435,7 @@ function showEditorColorPicker(anchorEl,callback){
     spUpdateMeta();
     spUpdateWordCount();
     spUpdateVOSync();
+    if(b.scriptBoardSync)spPushToStoryboard(true);   // live script → storyboard mirror
     autoSave();
   }
   function spLoadFromBoard(){
@@ -7438,6 +7446,7 @@ function showEditorColorPicker(anchorEl,callback){
     spUpdateMeta();
     spUpdateWordCount();
     spUpdateVOSync();
+    spUpdateSyncBtn();
     spInitTableResize();
     spRenderFromBuffer();   // parse buffer → scenes → render two-column UI
     spInitSceneEditor();    // wire scene/rail/pace/dock (guarded; once)
@@ -7462,6 +7471,46 @@ function showEditorColorPicker(anchorEl,callback){
     const tables=spEl('sp-editor').querySelectorAll('table');
     const badge=spEl('sp-sync-badge');
     if(tables.length){badge.style.display='';} else {badge.style.display='none';}
+  }
+
+  // ── PUSH SCRIPT → STORYBOARD (one frame per scene) ──────────────────────
+  function spHtmlToText(html){
+    const d=document.createElement('div');
+    d.innerHTML=(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li)>/gi,'\n');
+    return (d.textContent||'').replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').trim();
+  }
+  // quiet=true → auto-sync from spSyncOut: no toast, no undo snapshot, no autoSave (caller saves)
+  function spPushToStoryboard(quiet){
+    const b=activeBoard();if(!b)return false;
+    if(document.body.classList.contains('storyboard-version-locked')){
+      if(!quiet)showToast('storyboard version is locked — unlock or branch it first');
+      return false;
+    }
+    spReadScenesFromDOM();
+    if(!spScenes.length){ if(!quiet)showToast('no scenes to push yet'); return false; }
+    if(!quiet&&typeof pushSBHistory==='function')pushSBHistory();
+    let created=0;
+    spScenes.forEach((s,i)=>{
+      if(!b.frames[i]){ b.frames[i]=makeFrame(); created++; }
+      b.frames[i].voiceOver=spHtmlToText(s.vo);
+      b.frames[i].action=spHtmlToText(s.vis);
+    });
+    renderAll();
+    if(!quiet){
+      autoSave();
+      showToast('pushed '+spScenes.length+' scene'+(spScenes.length===1?'':'s')+' to storyboard'+(created?' ('+created+' new frame'+(created===1?'':'s')+')':''));
+    }
+    return true;
+  }
+  function spUpdateSyncBtn(){
+    const btn=spEl('sp-push-board-btn');if(!btn)return;
+    const b=activeBoard();
+    const on=!!(b&&b.scriptBoardSync);
+    btn.classList.toggle('sync-on',on);
+    btn.textContent=on?'✓ synced':'→ storyboard';
+    btn.title=on
+      ?'script is syncing to the storyboard as you write — click to stop syncing'
+      :'push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced as you write; click again to stop syncing';
   }
 
   // ── TWO-COLUMN SCENE EDITOR (redesign) ──────────────────────────────────
@@ -8024,6 +8073,35 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     if(_spShareBtn)_spShareBtn.addEventListener('click',()=>{ if(typeof openShareDialog==='function')openShareDialog(); });
     // sp-pdf-export-btn removed from toolbar
     spEl('sp-find-btn').addEventListener('click',spShowFind);
+
+    // push to storyboard / keep synced (toggle)
+    spEl('sp-push-board-btn').addEventListener('click',()=>{
+      const b=activeBoard();if(!b)return;
+      if(b.scriptBoardSync){
+        b.scriptBoardSync=false;
+        spUpdateSyncBtn();autoSave();
+        showToast('storyboard sync off');
+        return;
+      }
+      if(spPushToStoryboard(false)){
+        b.scriptBoardSync=true;
+        spUpdateSyncBtn();autoSave();
+      }
+    });
+
+    // script text zoom (device preference, persisted in localStorage)
+    let spZoom=1;
+    try{spZoom=parseFloat(localStorage.getItem('pb_sp_zoom'))||1;}catch(e){}
+    function spApplyZoom(z){
+      spZoom=Math.min(2,Math.max(0.8,Math.round(z*10)/10));
+      document.body.style.setProperty('--sp-zoom',spZoom);
+      const l=spEl('sp-zoom-label');if(l)l.textContent=Math.round(spZoom*100)+'%';
+      try{localStorage.setItem('pb_sp_zoom',String(spZoom));}catch(e){}
+    }
+    spEl('sp-zoom-out').addEventListener('click',()=>spApplyZoom(spZoom-0.1));
+    spEl('sp-zoom-in').addEventListener('click',()=>spApplyZoom(spZoom+0.1));
+    spEl('sp-zoom-label').addEventListener('click',()=>spApplyZoom(1));
+    spApplyZoom(spZoom);
 
     // find bar
     spEl('sp-find-input').addEventListener('input',spRunFind);
