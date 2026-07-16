@@ -2087,6 +2087,12 @@ body:not(.light) #hub-view{background:var(--bg);}
 </style>
 </head>
 <body>
+<script>
+/* Apply the saved theme before first paint. The full state load (auth + cloud)
+   happens async, so without this the page flashes the legacy dark design. */
+try{document.body.classList.toggle('light',localStorage.getItem('pb_theme')!=='dark');}
+catch(e){document.body.classList.add('light');}
+</script>
 
 <div id="topbar">
   <button id="sidebar-toggle" title="toggle project sidebar">
@@ -3628,6 +3634,7 @@ function loadState(state){
   isDark=state.isDark!==undefined?state.isDark:false;
   // One-time: greet existing (dark-saved) users in the new warm/light design once.
   try{ if(!localStorage.getItem('pb_redesign_light_v1')){ isDark=false; localStorage.setItem('pb_redesign_light_v1','1'); } }catch(e){}
+  try{localStorage.setItem('pb_theme',isDark?'dark':'light');}catch(e){}
   document.body.classList.toggle('light',!isDark);
   $('icon-moon').style.display=isDark?'block':'none';
   $('icon-sun').style.display=isDark?'none':'block';
@@ -5532,6 +5539,7 @@ function renderTabs(){
 // ── THEME / TOGGLE ────────────────────────────────────────────────────────
 function toggleTheme(){
   isDark=!isDark;document.body.classList.toggle('light',!isDark);
+  try{localStorage.setItem('pb_theme',isDark?'dark':'light');}catch(e){}
   $('icon-moon').style.display=isDark?'block':'none';
   $('icon-sun').style.display=isDark?'none':'block';
   // Sync settings panel toggle if it exists
