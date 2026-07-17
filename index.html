@@ -3958,25 +3958,44 @@ async function exportScriptPDF(){
     pdf.setDrawColor(210);pdf.setLineWidth(0.3);pdf.line(mL,y,PW-mR,y);y+=9;
     const scenes=[...document.querySelectorAll('#sp-doc .sp-scene')].map(s=>({
       slug:((s.querySelector('.sp-scene-slug')||{}).innerText||'').trim(),
+      dur:((s.querySelector('.sp-scene-dur')||{}).innerText||'').trim(),
       vo:((s.querySelector('.sp-vo')||{}).innerText||'').trim(),
       vis:((s.querySelector('.sp-vis')||{}).innerText||'').trim()
     }));
     if(!scenes.length){ showToast('nothing to export yet'); return; }
+    // two columns like the app: narration 1.5fr | rule | on-screen 1fr
+    const gap=8, voW=(colW-gap)*1.5/2.5, visX=mL+voW+gap, visW=colW-voW-gap-4;
+    const voLH=5.2, visLH=4.7;
     scenes.forEach((sc,i)=>{
-      ensure(14);
+      ensure(20);
       pdf.setFont('helvetica','bold');pdf.setFontSize(12);pdf.setTextColor(25);
-      pdf.text(String(i+1).padStart(2,'0')+'   '+(sc.slug||'Scene'),mL,y);y+=6.5;
-      if(sc.vo){
-        pdf.setFont('helvetica','bold');pdf.setFontSize(7.5);pdf.setTextColor(150);ensure(6);pdf.text('NARRATION',mL,y);y+=4.5;
+      pdf.text(String(i+1).padStart(2,'0')+'   '+(sc.slug||'Scene'),mL,y);
+      if(sc.dur&&sc.dur!=='0:00'){ pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(150);pdf.text(sc.dur,PW-mR,y,{align:'right'}); }
+      y+=6.5;
+      pdf.setFont('helvetica','bold');pdf.setFontSize(7.5);pdf.setTextColor(150);
+      if(sc.vo)pdf.text('NARRATION',mL,y);
+      if(sc.vis)pdf.text('ON SCREEN',visX+4,y);
+      y+=4.5;
+      pdf.setFontSize(10.5);
+      let voLines=sc.vo?pdf.splitTextToSize(sc.vo,voW):[];
+      pdf.setFontSize(9.5);
+      let visLines=sc.vis?pdf.splitTextToSize(sc.vis,visW):[];
+      // render the two columns side by side, continuing across pages if needed
+      while(voLines.length||visLines.length){
+        const avail=PH-mB-y;
+        const nVo=Math.min(voLines.length,Math.max(1,Math.floor(avail/voLH)));
+        const nVis=Math.min(visLines.length,Math.max(1,Math.floor(avail/visLH)));
+        const y0=y;
         pdf.setFont('helvetica','normal');pdf.setFontSize(10.5);pdf.setTextColor(45);
-        pdf.splitTextToSize(sc.vo,colW).forEach(ln=>{ ensure(6);pdf.text(ln,mL,y);y+=5.2; });y+=2;
-      }
-      if(sc.vis){
-        pdf.setFont('helvetica','bold');pdf.setFontSize(7.5);pdf.setTextColor(150);ensure(6);pdf.text('ON SCREEN',mL,y);y+=4.5;
+        voLines.slice(0,nVo).forEach((ln,j)=>pdf.text(ln,mL,y0+j*voLH));
         pdf.setFont('helvetica','italic');pdf.setFontSize(9.5);pdf.setTextColor(95);
-        pdf.splitTextToSize(sc.vis,colW).forEach(ln=>{ ensure(6);pdf.text(ln,mL,y);y+=4.7; });y+=2;
+        visLines.slice(0,nVis).forEach((ln,j)=>pdf.text(ln,visX+4,y0+j*visLH));
+        if(nVis){ pdf.setDrawColor(220);pdf.setLineWidth(0.5);pdf.line(visX,y0-3.2,visX,y0+(nVis-1)*visLH+1); }
+        voLines=voLines.slice(nVo); visLines=visLines.slice(nVis);
+        y=y0+Math.max(nVo*voLH,nVis*visLH);
+        if(voLines.length||visLines.length){ pdf.addPage(); y=mT; }
       }
-      y+=5;
+      y+=7;
     });
     const fn=([project,meta.version].filter(Boolean).join('-').replace(/\s+/g,'-'))||'script';
     pdf.save(fn+'.pdf'); showToast('script PDF exported');
@@ -4256,6 +4275,14 @@ async function init(){
     spApply();
     spSave();
   }
+
+  // Deterministic open for hub tiles / crumb tabs: focus the panel, never toggle it closed
+  window.spEnsureOpen=function(name){
+    SP_ORDER.forEach(p=>{ if(p!==name && spState.open[p] && !spState.locked[p]) spState.open[p]=false; });
+    if(!spState.open[name]){ spState.open[name]=true; spFireOpen(name); }
+    spApply();
+    spSave();
+  };
 
   // Lock icon in tab clicked → toggle lock
   function spLockClick(name){
@@ -5419,7 +5446,7 @@ function updateNav(){
 }
 function closeCalIfOpen(){ if(typeof window.calClosePanel==='function') window.calClosePanel(); }
 function showHub(){ closeCalIfOpen(); renderHub(); const hv=document.getElementById('home-view'); if(hv)hv.classList.remove('show'); const h=document.getElementById('hub-view'); if(h){h.scrollTop=0;h.classList.add('show');} pbView='hub'; updateNav(); }
-function openPanel(name){ if(name==='calendar'){ if(typeof window.calOpenView==='function')window.calOpenView(); return; } const h=document.getElementById('hub-view'); if(h)h.classList.remove('show'); closeCalIfOpen(); const t=document.querySelector('.panel-tab[data-panel="'+name+'"]'); if(t)t.click(); _curPanel=name; pbView='panel'; updateNav(); }
+function openPanel(name){ if(name==='calendar'){ if(typeof window.calOpenView==='function')window.calOpenView(); return; } const h=document.getElementById('hub-view'); if(h)h.classList.remove('show'); closeCalIfOpen(); if(typeof window.spEnsureOpen==='function'){ window.spEnsureOpen(name); } else { const t=document.querySelector('.panel-tab[data-panel="'+name+'"]'); if(t)t.click(); } _curPanel=name; pbView='panel'; updateNav(); }
 function navBack(){ if(pbView==='panel')showHub(); else if(typeof goHome==='function')goHome(); }
 document.addEventListener('click',e=>{
   const hp=e.target.closest('#hub-panels .hub-panel'); if(hp){ openPanel(hp.dataset.panel); return; }
