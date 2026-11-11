@@ -6753,8 +6753,15 @@ function buildPresThumbs(){
 }
 
 // ── PDF EXPORT ────────────────────────────────────────────────────────────
+// Progress for the PDF build. The export button sits in a dialog that closes
+// when the build starts, so progress shows in the toast, which stays up until done.
+function pdfProgress(msg){const t=$('toast');if(!t)return;if(msg){t.textContent=msg;t.classList.add('show');}else t.classList.remove('show');}
+let pdfExportBusy=false;
 async function exportPDF(){
+  if(pdfExportBusy)return;pdfExportBusy=true;
   const btn=$('export-btn');btn.textContent='building…';btn.disabled=true;closeModal();
+  if(typeof closeShareDialog==='function')closeShareDialog();
+  pdfProgress('building PDF…');
   try{
     const{jsPDF}=window.jspdf;const bgColor=isDark?'#1e1e1e':'#ffffff';
     const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
@@ -6767,9 +6774,20 @@ async function exportPDF(){
     const metaStr=[meta.client,meta.project,meta.job&&`Job #${meta.job}`,meta.version].filter(Boolean).join('  ·  ');
     const cards=Array.from(document.querySelectorAll('.frame-card'));
     const canvases=[];
+    if(!cards.length){pdfProgress('');showToast('no frames to export');return;}
+    // html2canvas copies the page for every card. In the copy the card's
+    // fade-in animation restarts from invisible, which left cards blank, so
+    // animations are switched off there; and everything that isn't the card is
+    // skipped, so a long board doesn't copy the whole app once per frame.
+    const stillCss='*,*::before,*::after{animation:none!important;transition:none!important;}';
     for(let i=0;i<cards.length;i++){
+      const card=cards[i];
       btn.textContent=`rendering ${i+1}/${cards.length}…`;
-      canvases.push(await html2canvas(cards[i],{scale:2,useCORS:true,backgroundColor:bgColor,logging:false}));
+      pdfProgress(`building PDF… ${i+1}/${cards.length}`);
+      canvases.push(await html2canvas(card,{scale:2,useCORS:true,backgroundColor:bgColor,logging:false,
+        ignoreElements:el=>!!(document.body.contains(el)&&el!==document.body&&!el.contains(card)&&!card.contains(el)),
+        onclone:doc=>{const st=doc.createElement('style');st.textContent=stillCss;doc.head.appendChild(st);}}));
+      if(i%4===3)await new Promise(r=>setTimeout(r,0));
     }
     const totalPages=Math.ceil(canvases.length/FRAMES_PER_PAGE);
     for(let p=0;p<totalPages;p++){
@@ -6791,9 +6809,9 @@ async function exportPDF(){
       });
     }
     const filename=[meta.project||meta.client||b.name||'storyboard',meta.version].filter(Boolean).join('-').replace(/\s+/g,'-');
-    pdf.save(filename+'.pdf');showToast('pdf exported');
-  }catch(e){alert('PDF export failed: '+e.message);openModal();}
-  finally{btn.textContent='export';btn.disabled=false;}
+    pdf.save(filename+'.pdf');pdfProgress('');showToast('pdf exported');
+  }catch(e){pdfProgress('');alert('PDF export failed: '+e.message);openModal();}
+  finally{pdfExportBusy=false;btn.textContent='export';btn.disabled=false;}
 }
 
 // hide resize handle initially
