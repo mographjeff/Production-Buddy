@@ -3364,14 +3364,105 @@ async function legacyCloudData(){
   }catch(e){return null;}
 }
 
+// ── IMAGE STORAGE ─────────────────────────────────────────────────────────
+// Images used to live inside the project JSON as base64 text, so every save
+// re-uploaded every image of every project in one database row. Now each image
+// is uploaded once to Supabase Storage (bucket IMG_BUCKET, file named by its
+// content hash under the user's own folder) and the project keeps only its URL.
+// Runs just before each cloud save and moves whatever is still inline, so old
+// projects migrate themselves on their first save. If storage isn't available
+// (bucket not created yet, offline, not signed in) images simply stay inline
+// and saving works the way it always did.
+const IMG_BUCKET='pb-images';
+const IMG_KEYS=['image','annLayer'];       // frame image, annotation layer, brainstorm image cards
+const IMG_INLINE_MIN=2048;                 // tiny data URLs aren't worth a round trip
+const imgUrlByHash=new Map();              // content hash → public URL (this session)
+let imgStorageOff=false;                   // set when the bucket is missing; retried on reload
+function isInlineImage(v){return typeof v==='string'&&v.length>IMG_INLINE_MIN&&/^data:image\//i.test(v);}
+// Every {obj,key} in the saved state that still holds an inline image.
+function collectInlineImages(){
+  const out=[],seen=new Set();
+  (function walk(o){
+    if(!o||typeof o!=='object'||seen.has(o))return;seen.add(o);
+    if(Array.isArray(o)){for(const it of o)walk(it);return;}
+    for(const k of Object.keys(o)){
+      const v=o[k];
+      if(typeof v==='string'){if(IMG_KEYS.includes(k)&&isInlineImage(v))out.push({obj:o,key:k});}
+      else if(v&&typeof v==='object')walk(v);
+    }
+  })([boards,trash]);
+  return out;
+}
+async function uploadInlineImage(durl){
+  const blob=await (await fetch(durl)).blob();
+  const digest=await crypto.subtle.digest('SHA-256',await blob.arrayBuffer());
+  const hash=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');
+  if(imgUrlByHash.has(hash))return imgUrlByHash.get(hash);
+  const type=(blob.type||'image/jpeg').toLowerCase();
+  const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/svg+xml':'svg','image/bmp':'bmp'})[type]||'img';
+  const path=authUser.id+'/'+hash+'.'+ext;
+  const store=sbClient.storage.from(IMG_BUCKET);
+  const {error}=await store.upload(path,blob,{contentType:type,cacheControl:'31536000',upsert:false});
+  // "already exists" means this exact image was uploaded before — that's a hit, not a failure
+  if(error&&!(String(error.statusCode)==='409'||/exists|duplicate/i.test(error.message||'')))throw error;
+  const url=store.getPublicUrl(path).data.publicUrl;
+  imgUrlByHash.set(hash,url);
+  return url;
+}
+// Move inline images to storage and swap each for its URL, in place.
+// Returns {moved,left}; never throws.
+async function offloadImages(){
+  const res={moved:0,left:0};
+  if(isLocalFile||imgStorageOff||!(AUTH_ENABLED&&authUser&&sbClient&&sbClient.storage&&window.crypto&&crypto.subtle))return res;
+  const refs=collectInlineImages();
+  if(!refs.length)return res;
+  const groups=new Map();                  // identical image used in several places → one upload
+  refs.forEach(r=>{const d=r.obj[r.key];if(!groups.has(d))groups.set(d,[]);groups.get(d).push(r);});
+  const jobs=Array.from(groups.entries());
+  const total=jobs.length;let done=0,next=0,fatal=false,streak=0;
+  const el=$('save-indicator');
+  const worker=async()=>{
+    while(next<jobs.length&&!fatal&&streak<3){   // 3 failures in a row → backend is struggling; try again next save
+      const [durl,list]=jobs[next++];
+      try{
+        const url=await uploadInlineImage(durl);
+        // only swap if the field still holds the image we uploaded (it may have been edited meanwhile)
+        list.forEach(r=>{if(r.obj[r.key]===durl){r.obj[r.key]=url;res.moved++;}});
+        streak=0;
+      }catch(e){
+        res.left+=list.length;streak++;
+        const msg=String((e&&(e.message||e.error))||'');
+        if(/bucket not found|not_found|row-level security|unauthorized|403|404/i.test(msg+' '+(e&&e.statusCode))){
+          fatal=true;imgStorageOff=true;
+          console.warn('image storage unavailable — images stay inside the project for now',e);
+        }else console.warn('image upload failed, will retry on the next save',e);
+      }
+      done++;
+      if(total>3&&el&&!fatal){clearTimeout(saveIndicatorTimer);el.textContent='moving images… '+done+'/'+total;el.className='saving';}
+    }
+  };
+  await Promise.all([worker(),worker(),worker(),worker()]);
+  if(fatal||streak>=3)res.left=collectInlineImages().length;
+  return res;
+}
+
 let cloudSaveTimer=null;
+let cloudSaveBusy=false,cloudSaveQueued=null;
 function cloudSave(state){
   if(isLocalFile)return;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer=setTimeout(()=>cloudSaveAttempt(state,0),1500);
 }
 async function cloudSaveAttempt(state,tries){
+  // one save in flight at a time; a save requested meanwhile runs right after
+  if(cloudSaveBusy){cloudSaveQueued=state;return;}
+  cloudSaveBusy=true;
   try{
+    const off=await offloadImages();
+    if(off.moved){
+      // refresh the local cache with the slimmed-down state
+      try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch(e){}
+    }
     if(AUTH_ENABLED&&authUser&&sbClient){
       // Signed-in mode: upsert this user's own row (id=user_id=their uid).
       const {error}=await sbClient.from('prod_buddy_sync')
@@ -3392,6 +3483,9 @@ async function cloudSaveAttempt(state,tries){
     // a sync warning — not the data-loss "save failed" it used to claim.
     if(tries<2)setTimeout(()=>cloudSaveAttempt(state,tries+1),2000*(tries+1));
     else setSaveIndicator('cloud-error');
+  }finally{
+    cloudSaveBusy=false;
+    if(cloudSaveQueued){const q=cloudSaveQueued;cloudSaveQueued=null;cloudSave(q);}
   }
 }
 
@@ -3504,7 +3598,7 @@ function loadFromBoard(){
 }
 function getState(){syncToBoard();return{boards,trash,activeBoardId,nextBoardId,nextFrameId,nextVersionId,cols,isDark,scriptPanelWidth:$('script-panel').offsetWidth,fontSize:currentFontSize};}
 function stripImages(state){
-  const strip=f=>({...f,image:null,annLayer:null});
+  const strip=f=>({...f,image:isInlineImage(f.image)?null:f.image,annLayer:isInlineImage(f.annLayer)?null:f.annLayer});
   const stripBoard=b=>({...b,
     frames:(b.frames||[]).map(strip),
     storyboards:b.storyboards?{...b.storyboards,versions:b.storyboards.versions.map(v=>v.frames?{...v,frames:v.frames.map(strip)}:v)}:b.storyboards
@@ -4181,6 +4275,9 @@ async function init(){
       }
     }catch(e){console.warn('image optimize pass failed',e);}
   }
+
+  // Projects saved before image storage still carry their images inline — a save moves them out.
+  if(loaded&&!isLocalFile){try{if(collectInlineImages().length)autoSave();}catch(e){}}
 
   // ── PANEL TAB + SLIDING PANEL SYSTEM ──────────────────────────────────
   const SP_LAYOUT_KEY='pb_panel_layout_v3';
@@ -6038,12 +6135,12 @@ function openAnnotator(frame){
     }
 
     if(frame.image){
-      const img=new Image();
+      const img=new Image();img.crossOrigin='anonymous';
       img.onload=()=>{
         setupCanvases(img.width,img.height);
         annBaseCtx.drawImage(img,0,0,annBaseCanvas.width,annBaseCanvas.height);
         if(frame.annLayer){
-          const aimg=new Image();
+          const aimg=new Image();aimg.crossOrigin='anonymous';
           aimg.onload=()=>annDrawCtx.drawImage(aimg,0,0,annDrawCanvas.width,annDrawCanvas.height);
           aimg.src=frame.annLayer;
         }
@@ -6055,7 +6152,7 @@ function openAnnotator(frame){
       annBaseCtx.fillStyle='#1a1a1a';
       annBaseCtx.fillRect(0,0,annBaseCanvas.width,annBaseCanvas.height);
       if(frame.annLayer){
-        const aimg=new Image();
+        const aimg=new Image();aimg.crossOrigin='anonymous';
         aimg.onload=()=>annDrawCtx.drawImage(aimg,0,0,annDrawCanvas.width,annDrawCanvas.height);
         aimg.src=frame.annLayer;
       }
