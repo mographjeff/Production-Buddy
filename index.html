@@ -438,6 +438,10 @@ html.client-share-mode body>*:not(#client-share-root){display:none!important;}
 .cs-client{font-size:12px;color:#888;margin-top:2px;}
 .cs-viewonly{font-size:10px;color:#9a9a9a;border:1px solid rgba(255,255,255,0.16);padding:5px 11px;border-radius:20px;white-space:nowrap;}
 .cs-main{padding-top:8px;}
+.cs-tabs{display:flex;gap:6px;padding:14px 0 0;}
+.cs-tab{font:inherit;font-size:12px;font-weight:600;color:#9a9a9a;background:transparent;border:1px solid rgba(255,255,255,0.16);padding:6px 14px;border-radius:20px;cursor:pointer;}
+.cs-tab:hover{color:#fff;}
+.cs-tab.on{color:#fff;background:#3b82f6;border-color:#3b82f6;}
 .cs-section{padding:24px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
 .cs-sec-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .cs-sec-label{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:#777;font-weight:600;}
@@ -3965,6 +3969,7 @@ function buildClientSnapshot(b){
   });
   if(!scripts.length&&!storyboards.length)return null;
   return {v:1,project:{client:(b.meta&&b.meta.client)||'',title:(b.meta&&b.meta.project)||'',job:(b.meta&&b.meta.job)||''},
+    lead:(typeof _curPanel!=='undefined'&&_curPanel==='script')?'script':'storyboard',
     sharedBy:verAuthor(),sharedAt:verNowISO(),scripts:scripts,storyboards:storyboards};
 }
 
@@ -4118,18 +4123,34 @@ function renderClientSnapshot(root,snap){
   const p=snap.project||{};
   let h='<div class="cs-wrap"><header class="cs-header">'
     +'<div class="cs-brand"><span class="cs-logo"></span><div><div class="cs-title">'+(verEsc(p.title)||'Untitled project')+'</div>'+(p.client?'<div class="cs-client">'+verEsc(p.client)+'</div>':'')+'</div></div>'
-    +'<span class="cs-viewonly">view only · shared for review</span></header><main class="cs-main">';
+    +'<span class="cs-viewonly">view only · shared for review</span></header>';
+  // Script and storyboard both shared → one at a time, behind tabs. It opens on
+  // the one that was on screen when the link was published (storyboard for
+  // links published before this existed), so a storyboard review doesn't land
+  // on pages of script first.
+  const hasS=(snap.scripts||[]).length>0,hasT=(snap.storyboards||[]).length>0;
+  const lead=(hasS&&hasT)?(snap.lead==='script'?'script':'storyboard'):(hasT?'storyboard':'script');
+  if(hasS&&hasT){
+    h+='<nav class="cs-tabs">'+[['storyboard','Storyboard'],['script','Script']].map(k=>'<button class="cs-tab'+(k[0]===lead?' on':'')+'" data-cs-tab="'+k[0]+'" onclick="csShowKind(\''+k[0]+'\')">'+k[1]+'</button>').join('')+'</nav>';
+  }
+  h+='<main class="cs-main">';
   (snap.scripts||[]).forEach(s=>{
-    h+='<section class="cs-section"><div class="cs-sec-head"><span class="cs-sec-label">Script</span><span class="cs-vbadge '+verStatusClass(s.status)+'">v'+s.no+' · '+s.status+'</span></div>'
+    h+='<section class="cs-section" data-cs-kind="script"><div class="cs-sec-head"><span class="cs-sec-label">Script</span><span class="cs-vbadge '+verStatusClass(s.status)+'">v'+s.no+' · '+s.status+'</span></div>'
       +'<div class="cs-script">'+(s.html&&s.html.trim()?s.html:'<span class="cs-empty-inline">No script content.</span>')+'</div></section>';
   });
   (snap.storyboards||[]).forEach(t=>{
     const fields=t.fields||[{key:'voiceOver',label:'voice over'},{key:'action',label:'action'}];
-    h+='<section class="cs-section"><div class="cs-sec-head"><span class="cs-sec-label">Storyboard</span><span class="cs-vbadge '+verStatusClass(t.status)+'">v'+t.no+' · '+t.status+'</span></div>'
+    h+='<section class="cs-section" data-cs-kind="storyboard"><div class="cs-sec-head"><span class="cs-sec-label">Storyboard</span><span class="cs-vbadge '+verStatusClass(t.status)+'">v'+t.no+' · '+t.status+'</span></div>'
       +'<div class="cs-frames">'+(t.frames||[]).map((f,i)=>csFrame(f,i,fields)).join('')+'</div></section>';
   });
   h+='</main><footer class="cs-footer"><span>Shared by '+verEsc(snap.sharedBy||'the team')+'</span><span class="cs-foot-mark">production buddy</span></footer></div>';
   root.innerHTML=h;
+  if(hasS&&hasT)csShowKind(lead);
+}
+function csShowKind(kind){
+  document.querySelectorAll('#client-share-root [data-cs-kind]').forEach(el=>{el.style.display=(el.dataset.csKind===kind)?'':'none';});
+  document.querySelectorAll('#client-share-root [data-cs-tab]').forEach(el=>el.classList.toggle('on',el.dataset.csTab===kind));
+  window.scrollTo(0,0);
 }
 function csFrame(f,i,fields){
   const media=f.image?'<img class="cs-frame-img" src="'+verEsc(f.image)+'" alt="frame '+(i+1)+'" loading="lazy"/>':'<div class="cs-frame-img cs-frame-noimg"></div>';
