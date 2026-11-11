@@ -3040,6 +3040,7 @@ catch(e){document.body.classList.add('light');}
       <input class="link-input" readonly id="share-link-input"/>
       <button class="btn" id="copy-btn">copy</button>
     </div>
+    <div id="share-link-note" style="font-size:11px;color:#888;margin:-4px 0 12px;line-height:1.45;"></div>
     <div class="modal-label">people with access</div>
     <div class="collab-row">
       <div class="avatar" style="background:#1e3a5f;color:#7db8f7;">JM</div>
@@ -6062,9 +6063,24 @@ function renderFilmstrip(){
 }
 
 // ── MODAL ─────────────────────────────────────────────────────────────────
-function openModal(){$('modal-bg').classList.add('open');$('share-link-input').value=window.location.href;}
+// The link here is the public, view-only client link (?share=<id>) — never the
+// app's own address, which sends anyone but the owner to the sign-in screen.
+function modalShareId(){const b=(typeof activeBoard==='function')?activeBoard():null;return (b&&b.shareId&&b.sharedAt)?b.shareId:null;}
+function openModal(){
+  $('modal-bg').classList.add('open');
+  const id=modalShareId(),inp=$('share-link-input'),btn=$('copy-btn'),note=$('share-link-note');
+  btn.style.color='';
+  if(id){
+    inp.value=shareLink(id);inp.placeholder='';btn.textContent='copy';
+    note.innerHTML='Public, view-only — no sign-in. Shows what you last published. <a href="#" style="color:var(--accent);" onclick="closeModal();openShareDialog();return false;">Re-publish</a> to update it.';
+  }else{
+    inp.value='';inp.placeholder='no public link yet';btn.textContent='publish…';
+    note.textContent='Publish a view-only link that reviewers can open without signing in.';
+  }
+}
 function closeModal(){$('modal-bg').classList.remove('open');}
 function copyLink(){
+  if(!modalShareId()){closeModal();openShareDialog();return;}
   navigator.clipboard.writeText($('share-link-input').value).catch(()=>{});
   const btn=$('copy-btn');btn.textContent='copied!';btn.style.color='#4ade80';
   setTimeout(()=>{btn.textContent='copy';btn.style.color='';},2000);
