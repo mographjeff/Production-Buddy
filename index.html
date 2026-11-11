@@ -735,9 +735,9 @@ body.light .section-ta::placeholder{color:#ccc;}
 body.light .section-divider{background:#eee;}
 
 .frame-wrap{position:relative;}
-.insert-zone{position:absolute;right:-12px;top:0;bottom:0;width:24px;display:flex;align-items:center;justify-content:center;z-index:5;opacity:0;transition:opacity .15s;}
+.insert-zone{position:absolute;right:-12px;top:0;bottom:0;width:24px;display:flex;align-items:center;justify-content:center;z-index:5;opacity:0;transition:opacity .15s;pointer-events:none;}
 .frame-wrap:hover .insert-zone{opacity:1;}
-.insert-btn{width:20px;height:20px;border-radius:50%;background:#3b82f6;color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 8px rgba(59,130,246,0.5);}
+.insert-btn{pointer-events:auto;width:20px;height:20px;border-radius:50%;background:#3b82f6;color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 2px 8px rgba(59,130,246,0.5);}
 .insert-btn:hover{background:#2563eb;transform:scale(1.1);}
 
 #add-frame-btn{width:100%;border:1px dashed rgba(255,255,255,0.12);background:transparent;border-radius:10px;padding:14px;color:#3a3a3a;font-size:12px;cursor:pointer;font-family:inherit;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:5px;}
@@ -5657,7 +5657,15 @@ function autoResize(ta){
 // Re-fit every section textarea whenever the storyboard's width changes
 // (panel opened/closed, divider dragged, window resized) — heights measured
 // mid-transition or while hidden are wrong and were previously never corrected.
-function resizeAllSectionTAs(){document.querySelectorAll('#board .section-ta').forEach(autoResize);}
+function resizeAllSectionTAs(){
+  // Batched: reset all, measure all, then set all — one layout pass for the whole
+  // board. Doing it box-by-box forced a full layout per textarea (~0.5s on a long board).
+  const tas=Array.from(document.querySelectorAll('#board .section-ta')).filter(ta=>ta.clientWidth);
+  if(!tas.length)return;
+  tas.forEach(ta=>{ta.style.height='auto';});
+  const hs=tas.map(ta=>ta.scrollHeight);
+  tas.forEach((ta,i)=>{ta.style.height=hs[i]+'px';});
+}
 (function(){
   let t=null;
   const defer=()=>{clearTimeout(t);t=setTimeout(resizeAllSectionTAs,80);};
@@ -5726,7 +5734,11 @@ function openImgPicker(targetId){
 function closeImgPicker(){$('img-picker-overlay').style.display='none';imgPickerTargetId=null;}
 
 function renderBoard(){
-  const board=$('board');board.innerHTML='';
+  const board=$('board');
+  // remember where the board is scrolled so a rebuild doesn't move what's under the cursor
+  const scroller=$('canvas');
+  const keepScroll=scroller?scroller.scrollTop:0;
+  board.innerHTML='';
   const b=activeBoard();if(!b)return;
   const enabled=new Set(b.enabledFields);
 
@@ -5804,7 +5816,7 @@ function renderBoard(){
       imgArea.appendChild(clr);
     } else if(frame.image){
       // ── IMAGE ──
-      const img=document.createElement('img');img.src=frame.image;imgArea.appendChild(img);
+      const img=document.createElement('img');img.decoding='async';img.src=frame.image;imgArea.appendChild(img);
       if(frame.annLayer){
         const annImg=document.createElement('img');
         annImg.src=frame.annLayer;
@@ -5913,7 +5925,6 @@ function renderBoard(){
       inner.innerHTML=`<div class="section-label">${def.label}</div>`;
       const ta=document.createElement('textarea');ta.className='section-ta';ta.placeholder=def.placeholder;
       ta.value=frame[key]||'';ta.rows=1;
-      setTimeout(()=>autoResize(ta),0);
       ta.addEventListener('input',()=>{frame[key]=ta.value;autoResize(ta);autoSave();});
       inner.appendChild(ta);row.appendChild(handle);row.appendChild(inner);sections.appendChild(row);
       if(sIdx<vis.length-1){const d=document.createElement('div');d.className='section-divider';sections.appendChild(d);}
@@ -5929,6 +5940,10 @@ function renderBoard(){
     }
     board.appendChild(wrap);
   });
+  // fit every text box now (same task, before paint) so cards never show at the
+  // wrong height, then put the scroll position back
+  resizeAllSectionTAs();
+  if(scroller&&scroller.scrollTop!==keepScroll)scroller.scrollTop=keepScroll;
 }
 
 function renderFilmstrip(){
@@ -6519,8 +6534,8 @@ function startSmoothDrag(e, frame, startIdx, card){
       const [moved]=b.frames.splice(startIdx,1);
       b.frames.splice(dropIdx,0,moved);
       autoSave();
+      renderAll();
     }
-    renderAll();
   }
 
   document.addEventListener('pointermove', onMove);
@@ -7543,13 +7558,15 @@ function showEditorColorPicker(anchorEl,callback){
     spReadScenesFromDOM();
     if(!spScenes.length){ if(!quiet)showToast('no scenes to push yet'); return false; }
     if(!quiet&&typeof pushSBHistory==='function')pushSBHistory();
-    let created=0;
+    let created=0,changed=false;
     spScenes.forEach((s,i)=>{
-      if(!b.frames[i]){ b.frames[i]=makeFrame(); created++; }
-      b.frames[i].voiceOver=spHtmlToText(s.vo);
-      b.frames[i].action=spHtmlToText(s.vis);
+      if(!b.frames[i]){ b.frames[i]=makeFrame(); created++; changed=true; }
+      const vo=spHtmlToText(s.vo),act=spHtmlToText(s.vis);
+      if(b.frames[i].voiceOver!==vo||b.frames[i].action!==act)changed=true;
+      b.frames[i].voiceOver=vo;
+      b.frames[i].action=act;
     });
-    renderAll();
+    if(changed||!quiet)renderAll();
     if(!quiet){
       autoSave();
       showToast('pushed '+spScenes.length+' scene'+(spScenes.length===1?'':'s')+' to storyboard'+(created?' ('+created+' new frame'+(created===1?'':'s')+')':''));
