@@ -424,6 +424,9 @@ body.light .shd-row input{background:#f5f3ef;border-color:#ddd;color:#234;}
 .shd-link-open:hover{text-decoration:underline;}
 .shd-note{padding:2px 18px 18px;font-size:11px;color:#777;line-height:1.5;}
 html.client-share-mode,html.client-share-mode body{background:#0f0f0f!important;}
+/* the app locks the page to one screen (its panels scroll inside); the review page is a normal scrolling page */
+html.client-share-mode,html.client-share-mode body{height:auto!important;min-height:100%;overflow:visible!important;}
+html.client-share-mode body{display:block!important;}
 html.client-share-mode body>*:not(#client-share-root){display:none!important;}
 #client-share-root{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#ddd;min-height:100vh;}
 .cs-state{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:24px;}
