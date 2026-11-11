@@ -4049,25 +4049,36 @@ function renderShareDialog(st){
 function pbIsSafari(){const u=navigator.userAgent||'';return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|Edg\/|FxiOS|Android/.test(u);}
 function pbSavePDF(pdf,filename){
   const blob=pdf.output('blob');
-  const url=URL.createObjectURL(blob);
+  const safari=window.__pbForcePdfBox||pbIsSafari();
+  // "WebKitBlobResource error 1" means Safari could not find the file behind a
+  // temporary blob: address when it went to download it (seen in Private
+  // windows, non-default Safari profiles and some older versions), even on a
+  // fresh click. So Safari gets the PDF packed into the link itself (a data:
+  // address), which needs no lookup. Other browsers keep the lighter blob link.
+  const url=safari?pdf.output('datauristring'):URL.createObjectURL(blob);
+  const done=()=>{if(!safari)setTimeout(()=>URL.revokeObjectURL(url),120000);};
   const fresh=!!(navigator.userActivation&&navigator.userActivation.isActive);
-  if(window.__pbForcePdfBox||(pbIsSafari()&&!fresh)){pbPdfReadyBox(url,filename,blob.size);return;}
+  if(window.__pbForcePdfBox||(safari&&!fresh)){pbPdfReadyBox(url,filename,blob,done);return;}
   const a=document.createElement('a');a.href=url;a.download=filename;a.style.display='none';
   document.body.appendChild(a);a.click();
-  setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},120000);
+  setTimeout(()=>a.remove(),1000);done();
 }
-function pbPdfReadyBox(url,filename,size){
+function pbPdfReadyBox(url,filename,blob,done){
   document.getElementById('pdf-ready-box')?.remove();
   const ov=document.createElement('div');ov.id='pdf-ready-box';
   ov.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
-  const close=()=>{ov.remove();setTimeout(()=>URL.revokeObjectURL(url),120000);};
-  const mb=(size/1048576).toFixed(1);
+  let viewUrl=null;
+  const close=()=>{ov.remove();if(done)done();if(viewUrl)setTimeout(()=>URL.revokeObjectURL(viewUrl),600000);};
+  const mb=(blob.size/1048576).toFixed(1);
   ov.innerHTML='<div class="shd-card"><div class="shd-head"><span>PDF ready</span><button class="shd-x" aria-label="close">✕</button></div>'
     +'<div class="shd-msg"></div>'
-    +'<div class="shd-actions"><a class="shd-btn primary" style="text-decoration:none;">⬇ Download</a></div></div>';
+    +'<div class="shd-actions"><a class="shd-btn primary" data-k="dl" style="text-decoration:none;">⬇ Download</a>'
+    +'<a class="shd-btn" data-k="view" target="_blank" rel="noopener" style="text-decoration:none;">Open in a new tab</a></div>'
+    +'<div class="shd-note" style="padding:0 18px 16px;">If Download shows an error, open it in a new tab and save it from there.</div></div>';
   ov.querySelector('.shd-msg').textContent=filename+' · '+mb+' MB';
-  const a=ov.querySelector('a');a.href=url;a.download=filename;
+  const a=ov.querySelector('[data-k=dl]');a.href=url;a.download=filename;
   a.addEventListener('click',()=>setTimeout(close,400));
+  const v=ov.querySelector('[data-k=view]');viewUrl=URL.createObjectURL(blob);v.href=viewUrl;
   ov.querySelector('.shd-x').addEventListener('click',close);
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   document.body.appendChild(ov);
