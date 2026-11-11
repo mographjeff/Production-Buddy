@@ -4040,45 +4040,79 @@ function renderShareDialog(st){
   if(st.mode==='link'){const i=document.getElementById('shd-link');if(i){i.focus();i.select();}}
 }
 
-// Hand a finished PDF to the browser. Safari only downloads a generated file
-// reliably in direct response to a click; after a long build that click has
-// expired, and some Safari versions then open the file's temporary address as a
-// page and fail with "WebKitBlobResource error 1". So when the click is no
-// longer fresh in Safari, show a "PDF ready" box whose Download button is a
-// real link the user clicks. Everywhere else the file downloads straight away.
+// Hand a finished PDF to the browser.
+// Most browsers download a file generated in the page directly. One Safari
+// (27.0.1, on one Mac) would not: a blob: link failed with "WebKitBlobResource
+// error 1" and a data: link just opened as a page. So in Safari, when signed
+// in, the PDF is uploaded to the private pb-exports bucket and downloaded from
+// a short-lived signed https link, which every browser treats as an ordinary
+// download. If that isn't possible it falls back to the in-page link.
+const PDF_BUCKET='pb-exports';
 function pbIsSafari(){const u=navigator.userAgent||'';return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|Edg\/|FxiOS|Android/.test(u);}
-function pbSavePDF(pdf,filename){
-  const blob=pdf.output('blob');
-  const safari=window.__pbForcePdfBox||pbIsSafari();
-  // "WebKitBlobResource error 1" means Safari could not find the file behind a
-  // temporary blob: address when it went to download it (seen in Private
-  // windows, non-default Safari profiles and some older versions), even on a
-  // fresh click. So Safari gets the PDF packed into the link itself (a data:
-  // address), which needs no lookup. Other browsers keep the lighter blob link.
-  const url=safari?pdf.output('datauristring'):URL.createObjectURL(blob);
-  const done=()=>{if(!safari)setTimeout(()=>URL.revokeObjectURL(url),120000);};
-  const fresh=!!(navigator.userActivation&&navigator.userActivation.isActive);
-  if(window.__pbForcePdfBox||(safari&&!fresh)){pbPdfReadyBox(url,filename,blob,done);return;}
-  const a=document.createElement('a');a.href=url;a.download=filename;a.style.display='none';
-  document.body.appendChild(a);a.click();
-  setTimeout(()=>a.remove(),1000);done();
+function pbPdfStore(){
+  const t=window.__pbPdfTest;if(t&&t.store)return t.store;
+  if(typeof isLocalFile!=='undefined'&&isLocalFile)return null;
+  if(typeof AUTH_ENABLED==='undefined'||!AUTH_ENABLED||!authUser||!sbClient||!sbClient.storage)return null;
+  return {client:sbClient,uid:authUser.id};
 }
-function pbPdfReadyBox(url,filename,blob,done){
+// Upload and return {download,view} signed links (10 min), or null on any failure.
+async function pbUploadPdf(blob,filename){
+  const st=pbPdfStore();if(!st)return null;
+  try{
+    const bucket=st.client.storage.from(PDF_BUCKET);
+    const path=st.uid+'/'+Date.now()+'.pdf';
+    const up=await bucket.upload(path,blob,{contentType:'application/pdf',cacheControl:'0',upsert:false});
+    if(up.error)throw up.error;
+    const dl=await bucket.createSignedUrl(path,600,{download:filename});
+    if(dl.error||!dl.data||!dl.data.signedUrl)throw (dl.error||new Error('no link'));
+    const vw=await bucket.createSignedUrl(path,600);
+    // tidy up: drop this account's earlier exports so only the newest is kept
+    try{
+      const ls=await bucket.list(st.uid,{limit:100});
+      const old=((ls&&ls.data)||[]).map(o=>st.uid+'/'+o.name).filter(n=>n!==path);
+      if(old.length)await bucket.remove(old);
+    }catch(e){}
+    return {download:dl.data.signedUrl,view:(vw&&vw.data&&vw.data.signedUrl)||null};
+  }catch(e){console.warn('pdf upload failed',e);return null;}
+}
+async function pbSavePDF(pdf,filename){
+  const blob=pdf.output('blob');
+  const t=window.__pbPdfTest||{};
+  const safari=('safari' in t)?t.safari:pbIsSafari();
+  if(!safari){
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=filename;a.style.display='none';
+    document.body.appendChild(a);a.click();
+    setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},120000);
+    return;
+  }
+  if(pbPdfStore()){
+    if(typeof pdfProgress==='function')pdfProgress('preparing download…');
+    const links=await pbUploadPdf(blob,filename);
+    if(typeof pdfProgress==='function')pdfProgress('');
+    if(links){pbPdfReadyBox({download:links.download,view:links.view,filename:filename,size:blob.size,served:true});return;}
+  }
+  // fallback: the PDF packed into the link itself, plus a blob link to view it
+  pbPdfReadyBox({download:pdf.output('datauristring'),view:URL.createObjectURL(blob),filename:filename,size:blob.size,served:false});
+}
+function pbPdfReadyBox(o){
   document.getElementById('pdf-ready-box')?.remove();
   const ov=document.createElement('div');ov.id='pdf-ready-box';
   ov.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
-  let viewUrl=null;
-  const close=()=>{ov.remove();if(done)done();if(viewUrl)setTimeout(()=>URL.revokeObjectURL(viewUrl),600000);};
-  const mb=(blob.size/1048576).toFixed(1);
+  const close=()=>{ov.remove();if(!o.served&&o.view)setTimeout(()=>URL.revokeObjectURL(o.view),600000);};
+  const mb=(o.size/1048576).toFixed(1);
   ov.innerHTML='<div class="shd-card"><div class="shd-head"><span>PDF ready</span><button class="shd-x" aria-label="close">✕</button></div>'
     +'<div class="shd-msg"></div>'
     +'<div class="shd-actions"><a class="shd-btn primary" data-k="dl" style="text-decoration:none;">⬇ Download</a>'
-    +'<a class="shd-btn" data-k="view" target="_blank" rel="noopener" style="text-decoration:none;">Open in a new tab</a></div>'
-    +'<div class="shd-note" style="padding:0 18px 16px;">If Download shows an error, open it in a new tab and save it from there.</div></div>';
-  ov.querySelector('.shd-msg').textContent=filename+' · '+mb+' MB';
-  const a=ov.querySelector('[data-k=dl]');a.href=url;a.download=filename;
-  a.addEventListener('click',()=>setTimeout(close,400));
-  const v=ov.querySelector('[data-k=view]');viewUrl=URL.createObjectURL(blob);v.href=viewUrl;
+    +(o.view?'<a class="shd-btn" data-k="view" target="_blank" rel="noopener" style="text-decoration:none;">Open in a new tab</a>':'')+'</div>'
+    +'<div class="shd-note" style="padding:0 18px 16px;"></div></div>';
+  ov.querySelector('.shd-msg').textContent=o.filename+' · '+mb+' MB';
+  ov.querySelector('.shd-note').textContent=o.served
+    ?'This link works for 10 minutes. Export again for a new one.'
+    :'If Download shows an error, open it in a new tab and save it from there.';
+  const a=ov.querySelector('[data-k=dl]');a.href=o.download;a.download=o.filename;
+  a.addEventListener('click',()=>setTimeout(close,o.served?1500:400));
+  const v=ov.querySelector('[data-k=view]');if(v)v.href=o.view;
   ov.querySelector('.shd-x').addEventListener('click',close);
   ov.addEventListener('click',e=>{if(e.target===ov)close();});
   document.body.appendChild(ov);
@@ -4144,7 +4178,7 @@ async function exportScriptPDF(){
       y+=7;
     });
     const fn=([project,meta.version].filter(Boolean).join('-').replace(/\s+/g,'-'))||'script';
-    pbSavePDF(pdf,fn+'.pdf'); showToast('script PDF exported');
+    await pbSavePDF(pdf,fn+'.pdf'); showToast('script PDF exported');
     if(typeof closeShareDialog==='function')closeShareDialog();
   }catch(e){ try{showToast('PDF export failed');}catch(_){} }
 }
@@ -6876,7 +6910,7 @@ async function exportPDF(){
       });
     }
     const filename=[meta.project||meta.client||b.name||'storyboard',meta.version].filter(Boolean).join('-').replace(/\s+/g,'-');
-    pdfProgress('');pbSavePDF(pdf,filename+'.pdf');showToast('pdf exported');
+    pdfProgress('');await pbSavePDF(pdf,filename+'.pdf');showToast('pdf exported');
   }catch(e){pdfProgress('');alert('PDF export failed: '+e.message);openModal();}
   finally{pdfExportBusy=false;btn.textContent='export';btn.disabled=false;}
 }
@@ -8265,7 +8299,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
         yOffset+=sliceH;
       }
       const filename=(project||'script').replace(/\s+/g,'-')+'-script.pdf';
-      pbSavePDF(doc,filename);
+      await pbSavePDF(doc,filename);
       showToast('script pdf exported');
     }catch(err){showToast('pdf export failed');console.error(err);}
   }
