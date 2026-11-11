@@ -4040,6 +4040,38 @@ function renderShareDialog(st){
   if(st.mode==='link'){const i=document.getElementById('shd-link');if(i){i.focus();i.select();}}
 }
 
+// Hand a finished PDF to the browser. Safari only downloads a generated file
+// reliably in direct response to a click; after a long build that click has
+// expired, and some Safari versions then open the file's temporary address as a
+// page and fail with "WebKitBlobResource error 1". So when the click is no
+// longer fresh in Safari, show a "PDF ready" box whose Download button is a
+// real link the user clicks. Everywhere else the file downloads straight away.
+function pbIsSafari(){const u=navigator.userAgent||'';return /Safari\//.test(u)&&!/Chrome|Chromium|CriOS|Edg\/|FxiOS|Android/.test(u);}
+function pbSavePDF(pdf,filename){
+  const blob=pdf.output('blob');
+  const url=URL.createObjectURL(blob);
+  const fresh=!!(navigator.userActivation&&navigator.userActivation.isActive);
+  if(window.__pbForcePdfBox||(pbIsSafari()&&!fresh)){pbPdfReadyBox(url,filename,blob.size);return;}
+  const a=document.createElement('a');a.href=url;a.download=filename;a.style.display='none';
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},120000);
+}
+function pbPdfReadyBox(url,filename,size){
+  document.getElementById('pdf-ready-box')?.remove();
+  const ov=document.createElement('div');ov.id='pdf-ready-box';
+  ov.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+  const close=()=>{ov.remove();setTimeout(()=>URL.revokeObjectURL(url),120000);};
+  const mb=(size/1048576).toFixed(1);
+  ov.innerHTML='<div class="shd-card"><div class="shd-head"><span>PDF ready</span><button class="shd-x" aria-label="close">✕</button></div>'
+    +'<div class="shd-msg"></div>'
+    +'<div class="shd-actions"><a class="shd-btn primary" style="text-decoration:none;">⬇ Download</a></div></div>';
+  ov.querySelector('.shd-msg').textContent=filename+' · '+mb+' MB';
+  const a=ov.querySelector('a');a.href=url;a.download=filename;
+  a.addEventListener('click',()=>setTimeout(close,400));
+  ov.querySelector('.shd-x').addEventListener('click',close);
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  document.body.appendChild(ov);
+}
 // PDF download from the share dialog — script PDF on the script panel, storyboard PDF on the storyboard panel
 function sharePDF(){
   try{
@@ -4101,7 +4133,7 @@ async function exportScriptPDF(){
       y+=7;
     });
     const fn=([project,meta.version].filter(Boolean).join('-').replace(/\s+/g,'-'))||'script';
-    pdf.save(fn+'.pdf'); showToast('script PDF exported');
+    pbSavePDF(pdf,fn+'.pdf'); showToast('script PDF exported');
     if(typeof closeShareDialog==='function')closeShareDialog();
   }catch(e){ try{showToast('PDF export failed');}catch(_){} }
 }
@@ -6833,7 +6865,7 @@ async function exportPDF(){
       });
     }
     const filename=[meta.project||meta.client||b.name||'storyboard',meta.version].filter(Boolean).join('-').replace(/\s+/g,'-');
-    pdf.save(filename+'.pdf');pdfProgress('');showToast('pdf exported');
+    pdfProgress('');pbSavePDF(pdf,filename+'.pdf');showToast('pdf exported');
   }catch(e){pdfProgress('');alert('PDF export failed: '+e.message);openModal();}
   finally{pdfExportBusy=false;btn.textContent='export';btn.disabled=false;}
 }
@@ -8222,7 +8254,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
         yOffset+=sliceH;
       }
       const filename=(project||'script').replace(/\s+/g,'-')+'-script.pdf';
-      doc.save(filename);
+      pbSavePDF(doc,filename);
       showToast('script pdf exported');
     }catch(err){showToast('pdf export failed');console.error(err);}
   }
