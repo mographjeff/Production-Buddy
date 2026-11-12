@@ -2381,7 +2381,7 @@ catch(e){document.body.classList.add('light');}
     <label class="script-btn" id="sp-import-btn" style="position:relative;overflow:hidden;cursor:pointer;">import
       <input type="file" id="sp-import-input" accept=".docx,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
     </label>
-    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced both ways; click again to stop syncing">⇄ storyboard</button>
+    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced both ways; click again to stop syncing">sync</button>
     <button class="script-btn primary" id="sp-share-client-btn" title="share a read-only link with your client &amp; export a PDF">Share with client</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -2548,6 +2548,7 @@ catch(e){document.body.classList.add('light');}
   <button class="icon-btn" id="share-btn" title="share & export PDF" style="width:26px;height:26px;border-radius:5px;">
     <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="m13 7.5-5-5v3C4 6 2 8.5 2 12c1.5-2 3.5-3 6-3v3l5-4.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
   </button>
+  <button class="script-btn primary" id="sb-share-client-btn" title="share a read-only link with your client &amp; export a PDF" style="margin-left:6px;" onclick="if(typeof openShareDialog==='function')openShareDialog()">Share with client</button>
 </div>
 
 <div id="main-body">
@@ -2560,7 +2561,7 @@ catch(e){document.body.classList.add('light');}
         <div class="script-actions">
           <button class="script-btn primary" id="script-docx-btn">import .docx</button>
           <button class="script-btn" id="script-clear-btn">clear</button>
-          <button class="script-btn" id="script-sync-btn" title="sync the script with the storyboard, both ways">⇄ sync</button>
+          <button class="script-btn" id="script-sync-btn" title="sync the script with the storyboard, both ways">sync</button>
           <input type="file" id="script-file-input" accept=".pdf"/>
           <input type="file" id="script-docx-input" accept=".docx"/>
         </div>
@@ -8104,10 +8105,10 @@ function showEditorColorPicker(anchorEl,callback){
     const b=activeBoard();
     const on=!!(b&&b.scriptBoardSync);
     btn.classList.toggle('sync-on',on);
-    btn.textContent=on?'⇄ synced':'⇄ storyboard';
+    btn.textContent=on?'synced':'sync';
     // the same toggle in the storyboard's split-screen script panel
     const side=spEl('script-sync-btn');
-    if(side){ side.classList.toggle('sync-on',on); side.textContent=on?'⇄ synced':'⇄ sync';
+    if(side){ side.classList.toggle('sync-on',on); side.textContent=on?'synced':'sync';
       side.title=on?'script and storyboard are synced both ways — click to stop syncing':'sync the script with the storyboard, both ways — narration ↔ voice over, on screen ↔ action, one frame per scene'; }
     btn.title=on
       ?'script and storyboard are synced both ways — click to stop syncing'
