@@ -1840,6 +1840,8 @@ body.light .sp-budget{background:rgba(251,250,248,.92);backdrop-filter:blur(10px
 .sp-scene-body{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;}
 .sp-col-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:6px;}
 .sp-vis-col{position:relative;padding-left:22px;}
+.sp-scene-thumb{display:none;margin-bottom:10px;}
+.sp-scene-thumb img{display:block;width:100%;max-width:260px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
 .sp-vis-col::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:2px;border-radius:2px;background:var(--line);}
 .sp-vo{font-size:calc(16px*var(--sp-zoom,1));line-height:1.6;color:var(--ink);outline:none;}
 .sp-vis{font-size:calc(13.5px*var(--sp-zoom,1));line-height:1.55;color:var(--ink-soft);outline:none;}
@@ -2373,7 +2375,7 @@ catch(e){document.body.classList.add('light');}
     <label class="script-btn" id="sp-import-btn" style="position:relative;overflow:hidden;cursor:pointer;">import
       <input type="file" id="sp-import-input" accept=".docx,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
     </label>
-    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced as you write; click again to stop syncing">→ storyboard</button>
+    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced both ways; click again to stop syncing">⇄ storyboard</button>
     <button class="script-btn primary" id="sp-share-client-btn" title="share a read-only link with your client &amp; export a PDF">Share with client</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -3689,6 +3691,8 @@ function autoSave(){
   stampActivePanelEdited();
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
   autoSaveTimer=setTimeout(()=>{
+    // two-way sync: edits made on the storyboard flow back into the script
+    try{if(typeof window.pbSyncFromStoryboard==='function')window.pbSyncFromStoryboard();}catch(e){console.warn('storyboard → script sync failed',e);}
     let state;
     try{state=getState();}catch(e){console.error('save failed',e);setSaveIndicator('error');return;}
     // localStorage is only a best-effort local cache. When online (and especially
@@ -3831,6 +3835,10 @@ function switchVersion(kind,targetId){
   const store=verStore(b,kind);
   if(targetId===store.activeId){verOpenMenu=null;renderVersionBars();return;}
   const target=store.versions.find(v=>v.id===targetId);if(!target)return;
+  // another version holds a different set of scenes/frames; syncing across it
+  // would rewrite one side to match, so sync is switched off until re-enabled
+  const hadSync=!!b.scriptBoardSync;
+  if(hadSync){b.scriptBoardSync=false;if(typeof window.pbSyncBtnRefresh==='function')window.pbSyncBtnRefresh();}
   if(kind==='script'){
     syncEditorsToBuffer();verParkScript(b);verLoadScript(b,target);
     reloadScriptEditors();applyScriptLockState();
@@ -3840,7 +3848,7 @@ function switchVersion(kind,targetId){
     renderAll();applyStoryboardLockState();
   }
   verOpenMenu=null;renderVersionBars();autoSave();
-  showToast((kind==='script'?'script':'storyboard')+' → v'+target.no);
+  showToast((kind==='script'?'script':'storyboard')+' → v'+target.no+(hadSync?' · script sync turned off':''));
 }
 function newVersion(kind){
   const b=activeBoard();if(!b)return;migrateBoardVersions(b);
@@ -3853,7 +3861,9 @@ function newVersion(kind){
   }else{
     verParkStoryboard(b);
     const nv=verMakeStoryboard(verMaxNo(store)+1,{note:'from v'+fromNo});
-    b.frames=verClone(b.frames||[]);b.frames.forEach(f=>{f.id=nextFrameId++;}); // independent copy w/ fresh ids
+    const idMap={};
+    b.frames=verClone(b.frames||[]);b.frames.forEach(f=>{const o=f.id;f.id=nextFrameId++;idMap[o]=f.id;}); // independent copy w/ fresh ids
+    if(b.scriptBoardSync&&typeof window.pbRemapSceneFrames==='function')window.pbRemapSceneFrames(idMap); // script scenes follow their frames
     store.versions.push(nv);store.activeId=nv.id;
     sbHistory=[];sbRedo=[];if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
     renderAll();applyStoryboardLockState();
@@ -7780,7 +7790,39 @@ function showEditorColorPicker(anchorEl,callback){
     d.innerHTML=(html||'').replace(/<br\s*\/?>/gi,'\n').replace(/<\/(p|div|li)>/gi,'\n');
     return (d.textContent||'').replace(/\u00a0/g,' ').replace(/\n{3,}/g,'\n\n').trim();
   }
-  // quiet=true → auto-sync from spSyncOut: no toast, no undo snapshot, no autoSave (caller saves)
+  // ── TWO-WAY SYNC ─────────────────────────────────────────────────────────
+  // Each scene remembers its frame's id (data-fid on the scene and on its row
+  // in b.scriptHtml), so the pair survives adds, deletes and reordering on
+  // either side. Whichever panel is being edited is the source: script edits
+  // push to frames (spPushToStoryboard), storyboard edits pull into scenes
+  // (spPullFromStoryboard, run from autoSave). Narration ↔ voice over,
+  // on screen ↔ action. Frame images are shown in the scene, not copied.
+  function spNorm(t){ return String(t==null?'':t).replace(/ /g,' ').replace(/\r/g,'').replace(/\n{3,}/g,'\n\n').trim(); }
+  function spTextToHtml(text,oldHtml){
+    const d=document.createElement('div'); d.innerHTML=oldHtml||'';
+    const imgs=[...d.querySelectorAll('img')].map(im=>im.outerHTML).join('');   // keep pictures pasted into the script
+    const body=String(text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    return body+(imgs?(body?'<br>':'')+imgs:'');
+  }
+  function spWriteBuffer(b){
+    spBufferFromScenes();
+    const ed=spEl('sp-editor'); b.scriptHtml=ed.innerHTML;
+    const sbEd=spEl('script-editor'); if(sbEd&&sbEd.innerHTML!==ed.innerHTML)sbEd.innerHTML=ed.innerHTML;
+  }
+  function spRefreshThumbs(){
+    const b=activeBoard(); const on=!!(b&&b.scriptBoardSync);
+    const byId=on?new Map((b.frames||[]).map(f=>[String(f.id),f])):null;
+    document.querySelectorAll('#sp-doc .sp-scene').forEach(el=>{
+      const box=el.querySelector('.sp-scene-thumb'); if(!box)return;
+      const f=on&&el.dataset.fid?byId.get(el.dataset.fid):null;
+      const src=(f&&f.image)||'';
+      if(box.dataset.src===src)return;
+      box.dataset.src=src; box.innerHTML='';
+      if(src){ const im=document.createElement('img'); im.loading='lazy'; im.decoding='async'; im.alt='storyboard frame'; im.src=src; box.appendChild(im); }
+      box.style.display=src?'block':'none';
+    });
+  }
+  // script → storyboard. quiet=true → from spSyncOut: no toast, no undo snapshot, no autoSave (caller saves)
   function spPushToStoryboard(quiet){
     const b=activeBoard();if(!b)return false;
     if(document.body.classList.contains('storyboard-version-locked')){
@@ -7790,31 +7832,179 @@ function showEditorColorPicker(anchorEl,callback){
     spReadScenesFromDOM();
     if(!spScenes.length){ if(!quiet)showToast('no scenes to push yet'); return false; }
     if(!quiet&&typeof pushSBHistory==='function')pushSBHistory();
-    let created=0,changed=false;
-    spScenes.forEach((s,i)=>{
-      if(!b.frames[i]){ b.frames[i]=makeFrame(); created++; changed=true; }
+    const old=b.frames||[];
+    const byId=new Map(old.map(f=>[String(f.id),f]));
+    const used=new Set(); let created=0,changed=false,relinked=false;
+    const sceneFrames=spScenes.map(s=>{
+      let f=(s.fid!=null&&!used.has(String(s.fid)))?byId.get(String(s.fid)):null;
       const vo=spHtmlToText(s.vo),act=spHtmlToText(s.vis);
-      if(b.frames[i].voiceOver!==vo||b.frames[i].action!==act)changed=true;
-      b.frames[i].voiceOver=vo;
-      b.frames[i].action=act;
-    });
+      if(!f){
+        if(!vo&&!act)return null;   // a blank scene gets its frame once it has text
+        f=makeFrame(); created++; changed=true; s.fid=String(f.id); relinked=true;
+      }
+      used.add(String(f.id));
+      if(spNorm(f.voiceOver)!==vo){ f.voiceOver=vo; changed=true; }
+      if(spNorm(f.action)!==act){ f.action=act; changed=true; }
+      return f;
+    }).filter(Boolean);
+    // frames follow scene order; frames with no scene keep their place after the frame they followed
+    const after=new Map(),head=[]; let prev=null;
+    old.forEach(f=>{ if(used.has(String(f.id)))prev=f; else if(prev){ if(!after.has(prev))after.set(prev,[]); after.get(prev).push(f); } else head.push(f); });
+    const nf=head.slice();
+    sceneFrames.forEach(f=>{ nf.push(f); (after.get(f)||[]).forEach(x=>nf.push(x)); });
+    if(nf.length!==old.length||nf.some((f,i)=>f!==old[i]))changed=true;
+    b.frames=nf;
+    if(relinked){
+      document.querySelectorAll('#sp-doc .sp-scene').forEach((el,i)=>{ if(spScenes[i]&&spScenes[i].fid!=null)el.dataset.fid=spScenes[i].fid; });
+      spWriteBuffer(b);
+    }
     if(changed||!quiet)renderAll();
+    spRefreshThumbs();
     if(!quiet){
       autoSave();
       showToast('pushed '+spScenes.length+' scene'+(spScenes.length===1?'':'s')+' to storyboard'+(created?' ('+created+' new frame'+(created===1?'':'s')+')':''));
     }
     return true;
   }
+  // storyboard → script. Runs from autoSave while the storyboard is the panel in use.
+  function spPullFromStoryboard(force){
+    const b=activeBoard(); if(!b||!b.scriptBoardSync)return false;
+    if(!force){
+      if(typeof pbView==='undefined'||pbView!=='panel'||_curPanel!=='storyboard')return false;
+      const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('#script-editor'))return false;
+    }
+    if(document.body.classList.contains('script-version-locked'))return false;
+    const ed=spEl('sp-editor'); if(!ed)return false;
+    if(ed.innerHTML!==(b.scriptHtml||''))ed.innerHTML=b.scriptHtml||'';
+    const scenes=spParseScenes(ed.innerHTML);
+    const frames=b.frames||[];
+    const ids=new Set(frames.map(f=>String(f.id)));
+    let changed=false;
+    // no scene points at a frame that exists (first sync, or the frames were
+    // replaced wholesale) → pair by order instead of treating every scene as deleted
+    if(!scenes.some(s=>s.fid!=null&&ids.has(String(s.fid)))){
+      scenes.forEach((s,i)=>{ s.fid=frames[i]?String(frames[i].id):null; });
+      changed=true;
+    }
+    const byFid=new Map();
+    scenes.forEach(s=>{ if(s.fid!=null&&ids.has(String(s.fid))&&!byFid.has(String(s.fid)))byFid.set(String(s.fid),s); });
+    // scenes with no frame yet keep their place after the scene they followed;
+    // scenes whose frame was deleted are dropped
+    const after=new Map(),head=[]; let prev=null;
+    scenes.forEach(s=>{
+      if(s.fid!=null&&byFid.get(String(s.fid))===s){ prev=s; return; }
+      if(s.fid==null){ if(prev){ if(!after.has(prev))after.set(prev,[]); after.get(prev).push(s); } else head.push(s); }
+    });
+    const out=head.slice();
+    frames.forEach(f=>{
+      let s=byFid.get(String(f.id));
+      if(!s){ s={slug:'New scene',vo:'',vis:'',fid:String(f.id)}; changed=true; }
+      const vo=spNorm(f.voiceOver),act=spNorm(f.action);
+      if(spHtmlToText(s.vo)!==vo){ s.vo=spTextToHtml(vo,s.vo); changed=true; }
+      if(spHtmlToText(s.vis)!==act){ s.vis=spTextToHtml(act,s.vis); changed=true; }
+      out.push(s); (after.get(s)||[]).forEach(x=>out.push(x));
+    });
+    if(out.length!==scenes.length||out.some((x,i)=>x!==scenes[i]))changed=true;
+    if(changed){ spScenes=out; spWriteBuffer(b); spRenderScenes(); spUpdateWordCount(); }
+    else spRefreshThumbs();
+    return changed;
+  }
+  window.pbSyncFromStoryboard=()=>spPullFromStoryboard(false);
+  // a new storyboard version gives its frames fresh ids → point the scenes at the new ones
+  window.pbRemapSceneFrames=function(map){
+    const b=activeBoard(); const ed=spEl('sp-editor'); if(!b||!ed)return;
+    if(ed.innerHTML!==(b.scriptHtml||''))ed.innerHTML=b.scriptHtml||'';
+    const scenes=spParseScenes(ed.innerHTML);
+    scenes.forEach(s=>{ if(s.fid!=null&&map[s.fid]!=null)s.fid=String(map[s.fid]); });
+    spScenes=scenes; spWriteBuffer(b); spRenderScenes();
+  };
+  // Turn sync on. Scenes and frames are paired in order unless they are already
+  // linked. If their text disagrees, ask which side to keep before anything is overwritten.
+  function spEnableSync(){
+    const b=activeBoard();if(!b)return;
+    if(document.body.classList.contains('storyboard-version-locked')){ showToast('storyboard version is locked — unlock or branch it first'); return; }
+    if(document.body.classList.contains('script-version-locked')){ showToast('script version is locked — unlock or branch it first'); return; }
+    spReadScenesFromDOM();
+    const frames=b.frames||[];
+    if(!spScenes.length&&!frames.length){ showToast('nothing to sync yet'); return; }
+    const ids=new Set(frames.map(f=>String(f.id)));
+    if(!spScenes.some(s=>s.fid!=null&&ids.has(String(s.fid))))spAlignScenes(spScenes,frames);
+    const byId=new Map(frames.map(f=>[String(f.id),f]));
+    const pairs=[];
+    spScenes.forEach((s,i)=>{ const f=s.fid!=null?byId.get(String(s.fid)):null; if(f)pairs.push([s,f,i]); });
+    // a real conflict is both sides filled in and different; a blank side just takes the other's text
+    let differ=0,first=-1;
+    pairs.forEach(([s,f,i])=>{
+      const sv=spHtmlToText(s.vo),sa=spHtmlToText(s.vis),fv=spNorm(f.voiceOver),fa=spNorm(f.action);
+      if((sv&&fv&&sv!==fv)||(sa&&fa&&sa!==fa)){ differ++; if(first<0)first=i; }
+    });
+    const go=winner=>{
+      if(typeof pushSBHistory==='function')pushSBHistory();
+      pairs.forEach(([s,f])=>{
+        const sv=spHtmlToText(s.vo),sa=spHtmlToText(s.vis),fv=spNorm(f.voiceOver),fa=spNorm(f.action);
+        if(!sv&&fv)s.vo=spTextToHtml(fv,s.vo); else if(sv&&!fv)f.voiceOver=sv;
+        if(!sa&&fa)s.vis=spTextToHtml(fa,s.vis); else if(sa&&!fa)f.action=sa;
+      });
+      spRenderScenes(); spWriteBuffer(b);          // links and filled-in blanks into the page and the saved script
+      b.scriptBoardSync=true;
+      if(winner==='storyboard'){ spPullFromStoryboard(true); spPushToStoryboard(true); }
+      else { spPushToStoryboard(true); spPullFromStoryboard(true); }
+      renderAll(); spUpdateSyncBtn(); autoSave();
+      showToast('synced · '+spScenes.length+' scene'+(spScenes.length===1?'':'s')+' ⇄ '+(b.frames||[]).length+' frame'+((b.frames||[]).length===1?'':'s'));
+    };
+    if(!differ){ go('script'); return; }
+    spSyncChoice({scenes:spScenes.length,frames:frames.length,differ:differ,first:first+1},go);
+  }
+  // First pairing: walk both lists in order, pairing scenes and frames whose
+  // narration matches. Where they don't, look a few places ahead on each side
+  // for the next match, so one extra scene or frame doesn't shift every pair
+  // after it; whatever is skipped is left unpaired and gets a new partner.
+  function spAlignScenes(scenes,frames){
+    const sv=scenes.map(s=>spHtmlToText(s.vo)), fv=frames.map(f=>spNorm(f.voiceOver));
+    scenes.forEach(s=>{ s.fid=null; });
+    const LOOK=6; let i=0,j=0;
+    while(i<scenes.length&&j<frames.length){
+      if(sv[i]===fv[j]){ scenes[i].fid=String(frames[j].id); i++; j++; continue; }
+      let skipS=0,skipF=0;
+      for(let k=1;k<=LOOK;k++){
+        if(i+k<scenes.length&&sv[i+k]&&sv[i+k]===fv[j]){ skipS=k; break; }
+        if(j+k<frames.length&&fv[j+k]&&sv[i]===fv[j+k]){ skipF=k; break; }
+      }
+      if(skipS){ i+=skipS; continue; }
+      if(skipF){ j+=skipF; continue; }
+      scenes[i].fid=String(frames[j].id); i++; j++;   // no nearby match → pair in place
+    }
+  }
+  function spSyncChoice(info,go){
+    document.getElementById('sp-sync-choice')?.remove();
+    const ov=document.createElement('div'); ov.id='sp-sync-choice';
+    ov.style.cssText='position:fixed;inset:0;z-index:1100;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+    const close=()=>ov.remove();
+    ov.innerHTML='<div class="shd-card"><div class="shd-head"><span>Sync script and storyboard</span><button class="shd-x" aria-label="close">✕</button></div>'
+      +'<div class="shd-msg"></div>'
+      +'<div class="shd-actions"><button class="shd-btn primary" data-w="script">Keep script text</button><button class="shd-btn" data-w="storyboard">Keep storyboard text</button><button class="shd-btn" data-w="">Cancel</button></div>'
+      +'<div class="shd-note" style="padding:0 18px 16px;">The other side is overwritten where they differ. Storyboard changes can be undone with the storyboard’s undo.</div></div>';
+    ov.querySelector('.shd-msg').textContent='The script has '+info.scenes+' scene'+(info.scenes===1?'':'s')+' and the storyboard has '+info.frames+' frame'+(info.frames===1?'':'s')
+      +'. '+info.differ+' matched pair'+(info.differ===1?' has':'s have')+' different text on both sides, starting at scene '+info.first+'. Which text should be kept?';
+    ov.addEventListener('click',e=>{
+      if(e.target===ov||e.target.closest('.shd-x')){ close(); return; }
+      const bt=e.target.closest('button[data-w]'); if(!bt)return;
+      close(); if(bt.dataset.w)go(bt.dataset.w);
+    });
+    document.body.appendChild(ov);
+  }
   function spUpdateSyncBtn(){
     const btn=spEl('sp-push-board-btn');if(!btn)return;
     const b=activeBoard();
     const on=!!(b&&b.scriptBoardSync);
     btn.classList.toggle('sync-on',on);
-    btn.textContent=on?'✓ synced':'→ storyboard';
+    btn.textContent=on?'⇄ synced':'⇄ storyboard';
     btn.title=on
-      ?'script is syncing to the storyboard as you write — click to stop syncing'
-      :'push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced as you write; click again to stop syncing';
+      ?'script and storyboard are synced both ways — click to stop syncing'
+      :'sync the script with the storyboard, both ways — narration ↔ voice over, on screen ↔ action, one frame per scene, and frame images show in the script';
+    spRefreshThumbs();
   }
+  window.pbSyncBtnRefresh=spUpdateSyncBtn;
 
   // ── TWO-COLUMN SCENE EDITOR (redesign) ──────────────────────────────────
   // Scenes are the editing model; they serialize to a <table> stored in
@@ -7835,7 +8025,7 @@ function showEditorColorPicker(anchorEl,callback){
 
   function spScenesToHTML(){
     if(!spScenes.length) return '';
-    const rows=spScenes.map(s=>`<tr><td>${s.slug||''}</td><td>${s.vo||''}</td><td>${s.vis||''}</td></tr>`).join('');
+    const rows=spScenes.map(s=>`<tr${s.fid!=null&&s.fid!==''?` data-fid="${spEscAttr(s.fid)}"`:''}><td>${s.slug||''}</td><td>${s.vo||''}</td><td>${s.vis||''}</td></tr>`).join('');
     return `<table class="sp-scene-table"><thead><tr><th>Scene</th><th>Narration</th><th>On screen</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
   // any HTML → scenes (auto-convert: our table, an import table, or free rich text)
@@ -7852,9 +8042,9 @@ function showEditorColorPicker(anchorEl,callback){
         if(cells.length>=3){ slug=cells[0].innerHTML.trim(); vo=cells[1].innerHTML.trim(); vis=cells.slice(2).map(c=>c.innerHTML.trim()).join(' '); }
         else if(cells.length===2){ vo=cells[0].innerHTML.trim(); vis=cells[1].innerHTML.trim(); }
         else { vo=cells[0].innerHTML.trim(); }
-        out.push({slug,vo,vis});
+        out.push({slug,vo,vis,fid:tr.dataset.fid||null});
       });
-      if(out.length) return out.map((s,i)=>({slug:s.slug||('Scene '+(i+1)),vo:s.vo||'',vis:s.vis||''}));
+      if(out.length) return out.map((s,i)=>({slug:s.slug||('Scene '+(i+1)),vo:s.vo||'',vis:s.vis||'',fid:s.fid}));
     }
     // free rich text → split into scenes on headings; "VO:" paragraphs → narration, others → on-screen
     const blocks=[...d.children].length?[...d.children]:[d];
@@ -7879,13 +8069,14 @@ function showEditorColorPicker(anchorEl,callback){
     spScenes=[...document.querySelectorAll('#sp-doc .sp-scene')].map(r=>({
       slug:(r.querySelector('.sp-scene-slug')?.innerText||'').trim(),
       vo:spCleanFieldHTML(r.querySelector('.sp-vo')),
-      vis:spCleanFieldHTML(r.querySelector('.sp-vis'))
+      vis:spCleanFieldHTML(r.querySelector('.sp-vis')),
+      fid:r.dataset.fid||null
     }));
   }
   function spBufferFromScenes(){ const ed=spEl('sp-editor'); if(ed) ed.innerHTML=spScenesToHTML(); }
   function spSceneHTML(s,i){
     const no=String(i+1).padStart(2,'0');
-    return `<section class="sp-scene" data-i="${i}">
+    return `<section class="sp-scene" data-i="${i}"${s.fid!=null&&s.fid!==''?` data-fid="${spEscAttr(s.fid)}"`:''}>
       <div class="sp-scene-head">
         <span class="sp-scene-no">${no}</span>
         <div class="sp-scene-slug sp-ed" contenteditable data-ph="Scene name">${s.slug||''}</div>
@@ -7894,7 +8085,7 @@ function showEditorColorPicker(anchorEl,callback){
       </div>
       <div class="sp-scene-body">
         <div><div class="sp-col-label">Narration</div><div class="sp-vo sp-ed" contenteditable data-ph="What we hear…">${s.vo||''}</div></div>
-        <div class="sp-vis-col"><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
+        <div class="sp-vis-col"><div class="sp-scene-thumb"></div><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
       </div>
     </section>`;
   }
@@ -7902,7 +8093,7 @@ function showEditorColorPicker(anchorEl,callback){
     const doc=spEl('sp-doc'); if(!doc) return;
     doc.innerHTML=spScenes.map(spSceneHTML).join('')+`<button class="sp-add-scene" id="sp-doc-add">+ Add scene</button>`;
     if(document.body.classList.contains('script-version-locked')) doc.querySelectorAll('.sp-ed').forEach(e=>e.contentEditable='false');
-    spRenderRail(); spUpdateBudget(); spObserveScenes();
+    spRenderRail(); spUpdateBudget(); spObserveScenes(); spRefreshThumbs();
   }
   function spRenderRail(){
     const rail=spEl('sp-rail'); if(!rail) return;
@@ -7942,7 +8133,21 @@ function showEditorColorPicker(anchorEl,callback){
     spRenderScenes(); spBufferFromScenes(); spSyncOut();
     const last=document.querySelector('#sp-doc .sp-scene:last-of-type .sp-vo'); if(last){ last.focus(); last.scrollIntoView({behavior:'smooth',block:'center'}); }
   }
-  function spDelScene(i){ spReadScenesFromDOM(); spScenes.splice(i,1); spRenderScenes(); spBufferFromScenes(); spSyncOut(); }
+  function spDelScene(i){
+    spReadScenesFromDOM();
+    const b=activeBoard(), sc=spScenes[i]; let frameGone=false;
+    if(b&&b.scriptBoardSync&&sc&&sc.fid!=null&&!document.body.classList.contains('storyboard-version-locked')){
+      const fi=(b.frames||[]).findIndex(f=>String(f.id)===String(sc.fid));
+      if(fi>=0){
+        const f=b.frames[fi];
+        if((f.image||f.videoName)&&!confirm('This scene’s storyboard frame has an image. Delete the scene and its frame?'))return;
+        if(typeof pushSBHistory==='function')pushSBHistory();
+        b.frames.splice(fi,1); frameGone=true;
+      }
+    }
+    spScenes.splice(i,1); spRenderScenes(); spBufferFromScenes(); spSyncOut();
+    if(frameGone&&typeof renderAll==='function')renderAll();
+  }
   function spRenderFromBuffer(){ const ed=spEl('sp-editor'); spScenes=spParseScenes(ed?ed.innerHTML:''); spRenderScenes(); }
   function spInitSceneEditor(){
     const doc=spEl('sp-doc'); if(!doc||doc._wired) return; doc._wired=true;
@@ -8409,10 +8614,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
         showToast('storyboard sync off');
         return;
       }
-      if(spPushToStoryboard(false)){
-        b.scriptBoardSync=true;
-        spUpdateSyncBtn();autoSave();
-      }
+      spEnableSync();
     });
 
     // script text zoom (device preference, persisted in localStorage)
