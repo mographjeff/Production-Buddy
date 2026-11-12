@@ -348,8 +348,15 @@ body.light .script-btn.sync-on{background:rgba(59,130,246,0.1);color:#2563eb !im
 body.light .script-btn.primary{background:var(--accent);color:#fff !important;border-color:transparent;}
 body.light .script-btn.primary:hover{filter:brightness(1.06);}
 #script-file-input,#script-docx-input{display:none;}
-.sp-side-thumb{margin-top:6px;user-select:none;-webkit-user-select:none;}
-.sp-side-thumb img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:1px solid rgba(128,128,128,0.25);}
+/* split-screen script table: Scene is a row number, Image is the linked frame's picture (never saved) */
+#script-editor table.sp-scene-table tbody{counter-reset:sprow;}
+#script-editor table.sp-scene-table tbody tr{counter-increment:sprow;}
+#script-editor table.sp-scene-table tbody td:first-child{font-size:0;text-align:center;user-select:none;-webkit-user-select:none;cursor:default;}
+#script-editor table.sp-scene-table tbody td:first-child::before{content:counter(sprow);font-size:12px;font-weight:600;opacity:.7;}
+#script-editor .sp-side-img{user-select:none;-webkit-user-select:none;}
+#script-editor td.sp-side-img{padding:4px;}
+#script-editor td.sp-side-img img,#script-editor td.sp-side-img video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:5px;border:1px solid rgba(128,128,128,0.25);background:#000;}
+#script-editor td.sp-side-img .sp-thumb-note{font-size:10.5px;line-height:1.35;padding:6px;}
 /* ── ARTIFACT VERSION BAR (Phase 1 versioning) ── */
 .ver-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;flex-shrink:0;font-size:11px;position:relative;background:#131313;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
 body.light .ver-bar{background:#f6f4f0;border-color:#e4e0d9;}
@@ -5321,7 +5328,9 @@ function addResizeHandle(th,table){
 function getCleanScriptHtml(){
   const editor=$('script-editor');
   const clone=editor.cloneNode(true);
-  clone.querySelectorAll('.col-resize-handle,.sp-side-thumb').forEach(h=>h.remove());
+  clone.querySelectorAll('.col-resize-handle,.sp-side-thumb,.sp-side-img').forEach(h=>h.remove());
+  // scene table: widths live in b.scriptLayout.sideCols and the number column's lock is display only
+  clone.querySelectorAll('table.sp-scene-table th,table.sp-scene-table td').forEach(c=>{ c.removeAttribute('style'); c.removeAttribute('contenteditable'); });
   return clone.innerHTML;
 }
 
@@ -7818,7 +7827,7 @@ function showEditorColorPicker(anchorEl,callback){
     b.scriptHtml=spEd.innerHTML;
     // also sync across to storyboard's script-editor so both stay in sync
     const sbEd=spEl('script-editor');
-    if(sbEd&&sbEd.innerHTML!==spEd.innerHTML)sbEd.innerHTML=spEd.innerHTML;
+    if(sbEd&&getCleanScriptHtml()!==spEd.innerHTML)sbEd.innerHTML=spEd.innerHTML;
     spUpdateMeta();
     spUpdateWordCount();
     spUpdateVOSync();
@@ -7916,41 +7925,64 @@ function showEditorColorPicker(anchorEl,callback){
     return true;
   };
   window.pbScriptSideFlush=function(){ if(spSideT)spSideApply(); };
-  // frame pictures in the split-screen table's Scene column — decoration only,
-  // never saved with the script (getCleanScriptHtml strips .sp-side-thumb)
+  // split-screen table dressing, display only (getCleanScriptHtml strips it all):
+  // the Scene column shows a row number, and when the script is synced an Image
+  // column after it shows each linked frame's picture or video
   function spSideThumbs(){
     const sb=spEl('script-editor'); if(!sb)return;
     const b=activeBoard(); const on=!!(b&&b.scriptBoardSync);
     const byId=on?new Map((b.frames||[]).map(f=>[String(f.id),f])):null;
-    sb.querySelectorAll('table.sp-scene-table tbody tr').forEach(tr=>{
-      const f=on&&tr.dataset.fid?byId.get(tr.dataset.fid):null;
-      const src=(f&&f.image)||'';
-      let box=tr.querySelector('.sp-side-thumb');
-      if(!src){ if(box)box.remove(); return; }
-      const cell=tr.children[0]; if(!cell)return;
-      if(!box){ box=document.createElement('div'); box.className='sp-side-thumb'; box.contentEditable='false'; box.appendChild(document.createElement('img')); cell.appendChild(box); }
-      const im=box.firstChild; if(im.getAttribute('src')!==src){ im.loading='lazy'; im.alt='storyboard frame'; im.src=src; }
+    sb.querySelectorAll('table.sp-scene-table').forEach(t=>{
+      if(!on)t.querySelectorAll('.sp-side-img').forEach(c=>c.remove());
+      const hr=t.querySelector('thead tr');
+      if(on&&hr&&!hr.querySelector('th.sp-side-img')){
+        const hc=document.createElement('th'); hc.className='sp-side-img'; hc.contentEditable='false'; hc.textContent='Image';
+        hr.insertBefore(hc,hr.children[1]||null);
+        if(typeof addResizeHandle==='function'){ hc.style.width='130px'; addResizeHandle(hc,t); }
+      }
+      t.querySelectorAll('tbody tr').forEach(tr=>{
+        const c0=tr.children[0]; if(c0&&c0.getAttribute('contenteditable')!=='false')c0.setAttribute('contenteditable','false');
+        if(!on)return;
+        let cell=tr.querySelector('td.sp-side-img');
+        if(!cell){ cell=document.createElement('td'); cell.className='sp-side-img'; cell.contentEditable='false'; tr.insertBefore(cell,tr.children[1]||null); }
+        const f=tr.dataset.fid?byId.get(tr.dataset.fid):null;
+        const vurl=(f&&!f.image&&f.videoName&&typeof sessionVideoURLs!=='undefined')?(sessionVideoURLs.get(f.id)||''):'';
+        const src=(f&&f.image)||(vurl?'video:'+vurl:'')||((f&&f.videoName)?'name:'+f.videoName:'');
+        if((cell.dataset.src||'')===src)return;
+        cell.dataset.src=src; cell.innerHTML='';
+        if(f&&f.image){ const im=document.createElement('img'); im.loading='lazy'; im.decoding='async'; im.alt='storyboard frame'; im.src=f.image; cell.appendChild(im); }
+        else if(vurl){ const v=document.createElement('video'); v.src=vurl; v.muted=true; v.controls=true; v.playsInline=true; v.preload='metadata'; cell.appendChild(v); }
+        else if(src){ const n=document.createElement('div'); n.className='sp-thumb-note'; n.textContent='🎬 '+f.videoName; n.title='add the video to the frame again to play it here'; cell.appendChild(n); }
+      });
     });
+    spSideCols();
   }
   window.pbSideThumbs=spSideThumbs;
   // column widths dragged in the split-screen table are kept per project
-  // (b.scriptLayout.sideCols) and put back whenever the table is rebuilt
+  // (b.scriptLayout.sideCols, by column: scene, image, vo, action, field key)
+  // and put back whenever the table is rebuilt
+  const SP_SIDE_DEF={scene:'64px',image:'130px'};
+  function spSideColKeys(ths){ let n=0; return ths.map(th=>th.classList.contains('sp-side-img')?'image':(th.dataset.k||['scene','vo','action'][n++]||('c'+n))); }
   function spSideCols(){
     const sb=spEl('script-editor'), b=activeBoard(); if(!sb||!b)return;
-    const L=b.scriptLayout&&b.scriptLayout.sideCols; if(!L)return;
-    sb.querySelectorAll('table.sp-scene-table thead th').forEach((th,i)=>{ if(L[i]&&th.style.width!==L[i])th.style.width=L[i]; });
+    let L=b.scriptLayout&&b.scriptLayout.sideCols; if(!L||Array.isArray(L))L={};
+    sb.querySelectorAll('table.sp-scene-table').forEach(t=>{
+      const ths=[...t.querySelectorAll('thead th')];
+      spSideColKeys(ths).forEach((k,i)=>{ const w=L[k]||SP_SIDE_DEF[k]; if(w&&ths[i].style.width!==w)ths[i].style.width=w; });
+    });
   }
   try{
     const _sb=spEl('script-editor');
     if(_sb){
-      new MutationObserver(()=>setTimeout(()=>{ spSideCols(); spSideThumbs(); },0)).observe(_sb,{childList:true});
+      new MutationObserver(()=>setTimeout(spSideThumbs,0)).observe(_sb,{childList:true});
       let dragging=false;
       _sb.addEventListener('mousedown',e=>{ dragging=!!(e.target.closest&&e.target.closest('.col-resize-handle')); },true);
       document.addEventListener('mouseup',()=>{
         if(!dragging)return; dragging=false;
         const b=activeBoard(); if(!b)return;
-        const w=[..._sb.querySelectorAll('table.sp-scene-table thead th')].map(th=>th.style.width||'');
-        if(w.some(Boolean)){ b.scriptLayout=Object.assign({},b.scriptLayout,{sideCols:w}); autoSave(); }
+        const ths=[..._sb.querySelectorAll('table.sp-scene-table thead th')]; if(!ths.length)return;
+        const w={}; spSideColKeys(ths).forEach((k,i)=>{ if(ths[i].style.width)w[k]=ths[i].style.width; });
+        if(Object.keys(w).length){ b.scriptLayout=Object.assign({},b.scriptLayout,{sideCols:w}); autoSave(); }
       });
     }
   }catch(e){}
@@ -8877,7 +8909,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
     // editor events
     ed.addEventListener('input',()=>{
       const b=activeBoard();if(b)b.scriptHtml=ed.innerHTML;
-      const sbEd=spEl('script-editor');if(sbEd&&sbEd.innerHTML!==ed.innerHTML)sbEd.innerHTML=ed.innerHTML;
+      const sbEd=spEl('script-editor');if(sbEd&&getCleanScriptHtml()!==ed.innerHTML)sbEd.innerHTML=ed.innerHTML;
       spUpdateWordCount();spUpdateVOSync();autoSave();
     });
     ed.addEventListener('keydown',spHandleEditorKeydown);
