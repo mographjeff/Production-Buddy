@@ -348,6 +348,8 @@ body.light .script-btn.sync-on{background:rgba(59,130,246,0.1);color:#2563eb !im
 body.light .script-btn.primary{background:var(--accent);color:#fff !important;border-color:transparent;}
 body.light .script-btn.primary:hover{filter:brightness(1.06);}
 #script-file-input,#script-docx-input{display:none;}
+.sp-side-thumb{margin-top:6px;user-select:none;-webkit-user-select:none;}
+.sp-side-thumb img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:1px solid rgba(128,128,128,0.25);}
 /* ── ARTIFACT VERSION BAR (Phase 1 versioning) ── */
 .ver-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;flex-shrink:0;font-size:11px;position:relative;background:#131313;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
 body.light .ver-bar{background:#f6f4f0;border-color:#e4e0d9;}
@@ -1851,6 +1853,8 @@ body.sp-resizing{user-select:none;-webkit-user-select:none;}
 .sp-vis-col::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:2px;border-radius:2px;background:var(--line);}
 .sp-vo{font-size:calc(16px*var(--sp-zoom,1));line-height:1.6;color:var(--ink);outline:none;}
 .sp-vis{font-size:calc(13.5px*var(--sp-zoom,1));line-height:1.55;color:var(--ink-soft);outline:none;}
+.sp-x-label{margin-top:12px;}
+.sp-x{min-height:1.2em;overflow-wrap:anywhere;}
 .sp-ed:empty:before{content:attr(data-ph);color:var(--ink-faint);opacity:.7;pointer-events:none;}
 .sp-add-scene{appearance:none;border:1.5px dashed var(--line);background:transparent;cursor:pointer;font:inherit;display:block;width:100%;margin-top:16px;padding:13px;border-radius:14px;color:var(--ink-soft);font-weight:600;font-size:14px;transition:border-color .15s,color .15s,transform .14s var(--spring);}
 .sp-add-scene:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px);}
@@ -2381,7 +2385,7 @@ catch(e){document.body.classList.add('light');}
     <label class="script-btn" id="sp-import-btn" style="position:relative;overflow:hidden;cursor:pointer;">import
       <input type="file" id="sp-import-input" accept=".docx,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
     </label>
-    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced both ways; click again to stop syncing">sync</button>
+    <button class="script-btn" id="sp-push-board-btn" title="sync the script with the storyboard, both ways — one frame per scene">sync</button>
     <button class="script-btn primary" id="sp-share-client-btn" title="share a read-only link with your client &amp; export a PDF">Share with client</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -2548,6 +2552,7 @@ catch(e){document.body.classList.add('light');}
   <button class="icon-btn" id="share-btn" title="share & export PDF" style="width:26px;height:26px;border-radius:5px;">
     <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="m13 7.5-5-5v3C4 6 2 8.5 2 12c1.5-2 3.5-3 6-3v3l5-4.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
   </button>
+  <button class="script-btn" id="script-sync-btn" title="sync the script with the storyboard, both ways" style="margin-left:6px;">sync</button>
   <button class="script-btn primary" id="sb-share-client-btn" title="share a read-only link with your client &amp; export a PDF" style="margin-left:6px;" onclick="if(typeof openShareDialog==='function')openShareDialog()">Share with client</button>
 </div>
 
@@ -2556,18 +2561,17 @@ catch(e){document.body.classList.add('light');}
   <!-- SCRIPT PANEL -->
   <div id="script-panel" class="hidden">
     <div id="script-panel-inner">
-      <div class="script-topbar">
+      <div class="script-topbar" style="display:none;">
         <span class="script-title">script</span>
         <div class="script-actions">
           <button class="script-btn primary" id="script-docx-btn">import .docx</button>
           <button class="script-btn" id="script-clear-btn">clear</button>
-          <button class="script-btn" id="script-sync-btn" title="sync the script with the storyboard, both ways">sync</button>
           <input type="file" id="script-file-input" accept=".pdf"/>
           <input type="file" id="script-docx-input" accept=".docx"/>
         </div>
       </div>
 
-      <div id="script-version-bar" class="ver-bar ver-host-script"></div>
+      <div id="script-version-bar" class="ver-bar ver-host-script" style="display:none;"></div>
 
       <!-- Rich text editor toolbar -->
       <div class="editor-toolbar" id="editor-toolbar">
@@ -3871,7 +3875,7 @@ function verIsLocked(v){return !!v&&v.status==='approved';}
 function syncEditorsToBuffer(){
   const b=activeBoard();if(!b)return;
   const a=document.activeElement;
-  if(a&&(a.id==='sp-editor'||a.id==='script-editor'))b.scriptHtml=a.innerHTML;
+  if(a&&a.id==='sp-editor')b.scriptHtml=a.innerHTML; else if(a&&a.id==='script-editor')b.scriptHtml=getCleanScriptHtml();
 }
 // Park the outgoing active version's content into its own snapshot fields.
 function verParkScript(b){const v=verActive(b.scripts);if(!v)return;v.html=b.scriptHtml||'';v.updatedAt=verNowISO();}
@@ -4032,7 +4036,9 @@ function verFieldDefs(enabledKeys){
   return (enabledKeys||[]).map(k=>{const fd=all.find(x=>x.key===k);return {key:k,label:fd?fd.label:k};});
 }
 // Materialize a version's content (the active version's content lives in the buffer).
-function verScriptHtml(b,v){return (v.id===b.scripts.activeId)?(b.scriptHtml||''):(v.html||'');}
+function verScriptHtml(b,v){return pbScriptWording((v.id===b.scripts.activeId)?(b.scriptHtml||''):(v.html||''));}
+// scripts saved before the rename carry the old column names in their table header
+function pbScriptWording(h){return String(h||'').replace('<th>Narration</th>','<th>Voice Over</th>').replace('<th>On screen</th>','<th>Action</th>');}
 function verSbContent(b,v){
   return (v.id===b.storyboards.activeId)
     ? {frames:b.frames||[],sectionOrder:b.sectionOrder||[],enabledFields:b.enabledFields||[]}
@@ -4220,7 +4226,7 @@ async function exportScriptPDF(){
       slug:((s.querySelector('.sp-scene-slug')||{}).innerText||'').trim(),
       dur:((s.querySelector('.sp-scene-dur')||{}).innerText||'').trim(),
       vo:((s.querySelector('.sp-vo')||{}).innerText||'').trim(),
-      vis:((s.querySelector('.sp-vis')||{}).innerText||'').trim()
+      vis:[((s.querySelector('.sp-vis')||{}).innerText||'').trim()].concat([...s.querySelectorAll('.sp-x[data-k]')].map(x=>{ const t=(x.innerText||'').trim(); const l=x.previousElementSibling?x.previousElementSibling.textContent.trim().toUpperCase():''; return t?(l+': '+t):''; })).filter(Boolean).join('\n\n')
     }));
     if(!scenes.length){ showToast('nothing to export yet'); return; }
     // two columns like the app: narration 1.5fr | rule | on-screen 1fr
@@ -4233,8 +4239,8 @@ async function exportScriptPDF(){
       if(sc.dur&&sc.dur!=='0:00'){ pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.setTextColor(150);pdf.text(sc.dur,PW-mR,y,{align:'right'}); }
       y+=6.5;
       pdf.setFont('helvetica','bold');pdf.setFontSize(7.5);pdf.setTextColor(150);
-      if(sc.vo)pdf.text('NARRATION',mL,y);
-      if(sc.vis)pdf.text('ON SCREEN',visX+4,y);
+      if(sc.vo)pdf.text('VOICE OVER',mL,y);
+      if(sc.vis)pdf.text('ACTION',visX+4,y);
       y+=4.5;
       pdf.setFontSize(10.5);
       let voLines=sc.vo?pdf.splitTextToSize(sc.vo,voW):[];
@@ -4999,7 +5005,7 @@ function initResizeHandle(){
 function execCmd(cmd,val){
   document.execCommand(cmd,false,val||null);
   $('script-editor').focus();
-  const b=activeBoard();if(b)b.scriptHtml=$('script-editor').innerHTML;
+  const b=activeBoard();if(b)b.scriptHtml=getCleanScriptHtml();
   autoSave();
 }
 function insertTable(){
@@ -5017,13 +5023,13 @@ function insertTable(){
   }
   html+='</tbody></table><p><br></p>';
   document.execCommand('insertHTML',false,html);
-  const b=activeBoard();if(b)b.scriptHtml=$('script-editor').innerHTML;
+  const b=activeBoard();if(b)b.scriptHtml=getCleanScriptHtml();
   setTimeout(initTableColumnResize,50);
   autoSave();
 }
 function insertHR(){
   document.execCommand('insertHTML',false,'<hr><p><br></p>');
-  const b=activeBoard();if(b)b.scriptHtml=$('script-editor').innerHTML;
+  const b=activeBoard();if(b)b.scriptHtml=getCleanScriptHtml();
 }
 function linkToFrame(){
   const b=activeBoard();if(!b)return;
@@ -5035,7 +5041,7 @@ function linkToFrame(){
   const frame=b.frames[num-1];
   const marker=`<span class="script-frame-marker" data-frame-id="${frame.id}" onclick="jumpToFrame(${frame.id})">▸ frame ${num}</span>`;
   document.execCommand('insertHTML',false,marker);
-  const b2=activeBoard();if(b2)b2.scriptHtml=$('script-editor').innerHTML;
+  const b2=activeBoard();if(b2)b2.scriptHtml=getCleanScriptHtml();
   autoSave();
 }
 function jumpToFrame(frameId){
@@ -5271,7 +5277,7 @@ function initTableColumnResize(){
 }
 
 function addResizeHandle(th,table){
-  if(!th.style.width||th.style.width==='auto'){
+  if((!th.style.width||th.style.width==='auto')&&th.offsetWidth>0){   // not while the panel is closed: that would freeze every column at the minimum
     th.style.width=Math.max(60,th.offsetWidth)+'px';
   }
   th.style.position='relative';th.style.overflow='visible';
@@ -5302,9 +5308,7 @@ function addResizeHandle(th,table){
       // Save without the handles (strip them first)
       const b=activeBoard();
       if(b){
-        editor.querySelectorAll('.col-resize-handle').forEach(h=>h.remove());
-        b.scriptHtml=$('script-editor').innerHTML;
-        initTableColumnResize(); // re-add handles
+        b.scriptHtml=getCleanScriptHtml();   // strips the handles from the saved copy
         autoSave();
       }
     }
@@ -5317,7 +5321,7 @@ function addResizeHandle(th,table){
 function getCleanScriptHtml(){
   const editor=$('script-editor');
   const clone=editor.cloneNode(true);
-  clone.querySelectorAll('.col-resize-handle').forEach(h=>h.remove());
+  clone.querySelectorAll('.col-resize-handle,.sp-side-thumb').forEach(h=>h.remove());
   return clone.innerHTML;
 }
 
@@ -5524,7 +5528,7 @@ function pbSeedExamples(){
   try{ if(localStorage.getItem('pb_examples_v1')) return; }catch(e){}
   if(typeof makeBoard!=='function'||!Array.isArray(boards)) return;
   const now=Date.now(), iso=new Date(now).toISOString(), ago=m=>now-m*60000;
-  const scenes=rows=>'<table class="sp-scene-table"><thead><tr><th>Scene</th><th>Narration</th><th>On screen</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')+'</tbody></table>';
+  const scenes=rows=>'<table class="sp-scene-table"><thead><tr><th>Scene</th><th>Voice Over</th><th>Action</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')+'</tbody></table>';
   const ver=(no,status)=>({id:'sv'+no,no,status,visibility:status==='approved'?'client':'internal',author:'you',createdAt:iso,updatedAt:iso,approvedAt:status==='approved'?iso:null,approvedBy:status==='approved'?'you':null,note:''});
   const mk=(client,project,job,accent)=>{const b=makeBoard(project);b.meta={client,project,job,version:''};b.accent=accent;return b;};
 
@@ -7832,6 +7836,7 @@ function showEditorColorPicker(anchorEl,callback){
     spUpdateSyncBtn();
     spInitTableResize();
     spRenderFromBuffer();   // parse buffer → scenes → render two-column UI
+    spSyncColumns();        // old wording / changed storyboard fields → current columns
     spInitSceneEditor();    // wire scene/rail/pace/dock (guarded; once)
   }
   function spUpdateMeta(){
@@ -7879,14 +7884,15 @@ function showEditorColorPicker(anchorEl,callback){
   function spWriteBuffer(b){
     spBufferFromScenes();
     const ed=spEl('sp-editor'); b.scriptHtml=ed.innerHTML;
-    const sbEd=spEl('script-editor'); if(!sbEd||sbEd.innerHTML===ed.innerHTML)return;
+    const sbEd=spEl('script-editor'); if(!sbEd)return;
+    if(getCleanScriptHtml()===ed.innerHTML){ spSideThumbs(); return; }
     const ae=document.activeElement;
     if(ae&&ae.closest&&ae.closest('#script-editor')){
       // being typed in → leave the text and caret alone, only stamp the frame links on its rows
       const rows=[...sbEd.querySelectorAll('table.sp-scene-table tbody tr')];
       if(rows.length===spScenes.length){
         rows.forEach((r,i)=>{ const f=spScenes[i].fid; if(f!=null&&f!=='')r.dataset.fid=f; else delete r.dataset.fid; });
-        return;
+        spSideThumbs(); return;
       }
     }
     sbEd.innerHTML=ed.innerHTML;
@@ -7910,7 +7916,46 @@ function showEditorColorPicker(anchorEl,callback){
     return true;
   };
   window.pbScriptSideFlush=function(){ if(spSideT)spSideApply(); };
+  // frame pictures in the split-screen table's Scene column — decoration only,
+  // never saved with the script (getCleanScriptHtml strips .sp-side-thumb)
+  function spSideThumbs(){
+    const sb=spEl('script-editor'); if(!sb)return;
+    const b=activeBoard(); const on=!!(b&&b.scriptBoardSync);
+    const byId=on?new Map((b.frames||[]).map(f=>[String(f.id),f])):null;
+    sb.querySelectorAll('table.sp-scene-table tbody tr').forEach(tr=>{
+      const f=on&&tr.dataset.fid?byId.get(tr.dataset.fid):null;
+      const src=(f&&f.image)||'';
+      let box=tr.querySelector('.sp-side-thumb');
+      if(!src){ if(box)box.remove(); return; }
+      const cell=tr.children[0]; if(!cell)return;
+      if(!box){ box=document.createElement('div'); box.className='sp-side-thumb'; box.contentEditable='false'; box.appendChild(document.createElement('img')); cell.appendChild(box); }
+      const im=box.firstChild; if(im.getAttribute('src')!==src){ im.loading='lazy'; im.alt='storyboard frame'; im.src=src; }
+    });
+  }
+  window.pbSideThumbs=spSideThumbs;
+  // column widths dragged in the split-screen table are kept per project
+  // (b.scriptLayout.sideCols) and put back whenever the table is rebuilt
+  function spSideCols(){
+    const sb=spEl('script-editor'), b=activeBoard(); if(!sb||!b)return;
+    const L=b.scriptLayout&&b.scriptLayout.sideCols; if(!L)return;
+    sb.querySelectorAll('table.sp-scene-table thead th').forEach((th,i)=>{ if(L[i]&&th.style.width!==L[i])th.style.width=L[i]; });
+  }
+  try{
+    const _sb=spEl('script-editor');
+    if(_sb){
+      new MutationObserver(()=>setTimeout(()=>{ spSideCols(); spSideThumbs(); },0)).observe(_sb,{childList:true});
+      let dragging=false;
+      _sb.addEventListener('mousedown',e=>{ dragging=!!(e.target.closest&&e.target.closest('.col-resize-handle')); },true);
+      document.addEventListener('mouseup',()=>{
+        if(!dragging)return; dragging=false;
+        const b=activeBoard(); if(!b)return;
+        const w=[..._sb.querySelectorAll('table.sp-scene-table thead th')].map(th=>th.style.width||'');
+        if(w.some(Boolean)){ b.scriptLayout=Object.assign({},b.scriptLayout,{sideCols:w}); autoSave(); }
+      });
+    }
+  }catch(e){}
   function spRefreshThumbs(){
+    spSideThumbs();
     const b=activeBoard(); const on=!!(b&&b.scriptBoardSync);
     const byId=on?new Map((b.frames||[]).map(f=>[String(f.id),f])):null;
     document.querySelectorAll('#sp-doc .sp-scene').forEach(el=>{
@@ -7940,17 +7985,18 @@ function showEditorColorPicker(anchorEl,callback){
     if(!quiet&&typeof pushSBHistory==='function')pushSBHistory();
     const old=b.frames||[];
     const byId=new Map(old.map(f=>[String(f.id),f]));
-    const used=new Set(); let created=0,changed=false,relinked=false;
+    const used=new Set(); let created=0,changed=false,relinked=false; const xk=spExtraKeys();
     const sceneFrames=spScenes.map(s=>{
       let f=(s.fid!=null&&!used.has(String(s.fid)))?byId.get(String(s.fid)):null;
       const vo=spHtmlToText(s.vo),act=spHtmlToText(s.vis);
       if(!f){
-        if(!vo&&!act)return null;   // a blank scene gets its frame once it has text
+        if(!vo&&!act&&!xk.some(k=>spHtmlToText((s.extra&&s.extra[k])||'')))return null;   // a blank scene gets its frame once it has text
         f=makeFrame(); created++; changed=true; s.fid=String(f.id); relinked=true;
       }
       used.add(String(f.id));
       if(spNorm(f.voiceOver)!==vo){ f.voiceOver=vo; changed=true; }
       if(spNorm(f.action)!==act){ f.action=act; changed=true; }
+      xk.forEach(k=>{ const t=spHtmlToText((s.extra&&s.extra[k])||''); if(spNorm(f[k])!==t){ f[k]=t; changed=true; } });
       return f;
     }).filter(Boolean);
     // frames follow scene order; frames with no scene keep their place after the frame they followed
@@ -7986,7 +8032,8 @@ function showEditorColorPicker(anchorEl,callback){
     const scenes=spParseScenes(ed.innerHTML);
     const frames=b.frames||[];
     const ids=new Set(frames.map(f=>String(f.id)));
-    let changed=false;
+    const xk=spExtraKeys();
+    let changed=spBufferSig(ed.innerHTML)!==spHeadSig(xk);   // a field was added or removed on the storyboard
     // no scene points at a frame that exists (first sync, or the frames were
     // replaced wholesale) → pair by order instead of treating every scene as deleted
     if(!scenes.some(s=>s.fid!=null&&ids.has(String(s.fid)))){
@@ -8005,10 +8052,11 @@ function showEditorColorPicker(anchorEl,callback){
     const out=head.slice();
     frames.forEach(f=>{
       let s=byFid.get(String(f.id));
-      if(!s){ s={slug:'New scene',vo:'',vis:'',fid:String(f.id)}; changed=true; }
+      if(!s){ s={slug:'New scene',vo:'',vis:'',fid:String(f.id),extra:{}}; changed=true; }
       const vo=spNorm(f.voiceOver),act=spNorm(f.action);
       if(spHtmlToText(s.vo)!==vo){ s.vo=spTextToHtml(vo,s.vo); changed=true; }
       if(spHtmlToText(s.vis)!==act){ s.vis=spTextToHtml(act,s.vis); changed=true; }
+      xk.forEach(k=>{ const t=spNorm(f[k]); if(!s.extra)s.extra={}; if(spHtmlToText(s.extra[k]||'')!==t){ s.extra[k]=spTextToHtml(t,s.extra[k]); changed=true; } });
       out.push(s); (after.get(s)||[]).forEach(x=>out.push(x));
     });
     if(out.length!==scenes.length||out.some((x,i)=>x!==scenes[i]))changed=true;
@@ -8016,7 +8064,7 @@ function showEditorColorPicker(anchorEl,callback){
     else spRefreshThumbs();
     return changed;
   }
-  window.pbSyncFromStoryboard=()=>spPullFromStoryboard(false);
+  window.pbSyncFromStoryboard=()=>{ const r=spPullFromStoryboard(false); if(!r)spSyncColumns(); return r; };
   // a new storyboard version gives its frames fresh ids → point the scenes at the new ones
   window.pbRemapSceneFrames=function(map){
     const b=activeBoard(); const ed=spEl('sp-editor'); if(!b||!ed)return;
@@ -8051,6 +8099,7 @@ function showEditorColorPicker(anchorEl,callback){
         const sv=spHtmlToText(s.vo),sa=spHtmlToText(s.vis),fv=spNorm(f.voiceOver),fa=spNorm(f.action);
         if(!sv&&fv)s.vo=spTextToHtml(fv,s.vo); else if(sv&&!fv)f.voiceOver=sv;
         if(!sa&&fa)s.vis=spTextToHtml(fa,s.vis); else if(sa&&!fa)f.action=sa;
+        spExtraKeys().forEach(k=>{ const sx=spHtmlToText((s.extra&&s.extra[k])||''),fx=spNorm(f[k]); if(!s.extra)s.extra={}; if(!sx&&fx)s.extra[k]=spTextToHtml(fx,''); else if(sx&&!fx)f[k]=sx; });
       });
       spRenderScenes(); spWriteBuffer(b);          // links and filled-in blanks into the page and the saved script
       b.scriptBoardSync=true;
@@ -8109,10 +8158,10 @@ function showEditorColorPicker(anchorEl,callback){
     // the same toggle in the storyboard's split-screen script panel
     const side=spEl('script-sync-btn');
     if(side){ side.classList.toggle('sync-on',on); side.textContent=on?'synced':'sync';
-      side.title=on?'script and storyboard are synced both ways — click to stop syncing':'sync the script with the storyboard, both ways — narration ↔ voice over, on screen ↔ action, one frame per scene'; }
+      side.title=on?'script and storyboard are synced both ways — click to stop syncing':'sync the script with the storyboard, both ways — one frame per scene'; }
     btn.title=on
       ?'script and storyboard are synced both ways — click to stop syncing'
-      :'sync the script with the storyboard, both ways — narration ↔ voice over, on screen ↔ action, one frame per scene, and frame images show in the script';
+      :'sync the script with the storyboard, both ways — one frame per scene, and frame images show in the script';
     spRefreshThumbs();
   }
   window.pbSyncBtnRefresh=spUpdateSyncBtn;
@@ -8134,10 +8183,35 @@ function showEditorColorPicker(anchorEl,callback){
   function spWordCount(html){ const d=document.createElement('div'); d.innerHTML=html||''; const t=(d.innerText||'').trim(); return t?t.split(/\s+/).length:0; }
   function spEscAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+  // Fields switched on for the storyboard beyond voice over / action (camera, music, link…)
+  // are carried by the script too: one more column in the saved table, one more box per scene.
+  function spExtraKeys(){
+    const b=activeBoard(); if(!b||typeof ALL_FIELDS==='undefined')return [];
+    const en=new Set(b.enabledFields||[]);
+    return (b.sectionOrder||[]).filter(k=>en.has(k)&&k!=='voiceOver'&&k!=='action'&&ALL_FIELDS.some(f=>f.key===k));
+  }
+  function spFieldLabel(k){ const d=(typeof ALL_FIELDS!=='undefined')&&ALL_FIELDS.find(f=>f.key===k); return ((d&&d.label)||k).replace(/\b[a-z]/g,c=>c.toUpperCase()); }
+  function spHeadSig(keys){ return 'Scene|Voice Over|Action'+keys.map(k=>'|'+k).join(''); }
+  function spBufferSig(html){
+    const d=document.createElement('div'); d.innerHTML=html||'';
+    const t=d.querySelector('table.sp-scene-table'); if(!t)return null;
+    return [...t.querySelectorAll('thead th')].map(th=>th.dataset.k||th.textContent.trim()).join('|');
+  }
+  // columns follow the storyboard's fields (and the current wording), synced or not
+  function spSyncColumns(){
+    const b=activeBoard(), ed=spEl('sp-editor'); if(!b||!ed)return false;
+    if(document.body.classList.contains('script-version-locked'))return false;
+    const ae=document.activeElement; if(ae&&ae.closest&&ae.closest('#script-editor,#sp-doc'))return false;
+    const sig=spBufferSig(b.scriptHtml); if(sig==null||sig===spHeadSig(spExtraKeys()))return false;
+    if(ed.innerHTML!==(b.scriptHtml||''))ed.innerHTML=b.scriptHtml||'';
+    spScenes=spParseScenes(ed.innerHTML); spWriteBuffer(b); spRenderScenes();
+    return true;
+  }
   function spScenesToHTML(){
     if(!spScenes.length) return '';
-    const rows=spScenes.map(s=>`<tr${s.fid!=null&&s.fid!==''?` data-fid="${spEscAttr(s.fid)}"`:''}><td>${s.slug||''}</td><td>${s.vo||''}</td><td>${s.vis||''}</td></tr>`).join('');
-    return `<table class="sp-scene-table"><thead><tr><th>Scene</th><th>Narration</th><th>On screen</th></tr></thead><tbody>${rows}</tbody></table>`;
+    const xk=spExtraKeys();
+    const rowsX=spScenes.map(s=>`<tr${s.fid!=null&&s.fid!==''?` data-fid="${spEscAttr(s.fid)}"`:''}><td>${s.slug||''}</td><td>${s.vo||''}</td><td>${s.vis||''}</td>${xk.map(k=>`<td data-k="${k}">${(s.extra&&s.extra[k])||''}</td>`).join('')}</tr>`).join('');
+    return `<table class="sp-scene-table"><thead><tr><th>Scene</th><th>Voice Over</th><th>Action</th>${xk.map(k=>`<th data-k="${k}">${spEscAttr(spFieldLabel(k))}</th>`).join('')}</tr></thead><tbody>${rowsX}</tbody></table>`;
   }
   // any HTML → scenes (auto-convert: our table, an import table, or free rich text)
   function spParseScenes(html){
@@ -8146,16 +8220,18 @@ function showEditorColorPicker(anchorEl,callback){
     if(table){
       const out=[]; let headerSkipped=false;
       [...table.querySelectorAll('tr')].forEach(tr=>{
-        const cells=[...tr.children]; if(!cells.length) return;
+        let cells=[...tr.children]; if(!cells.length) return;
         const txt=cells.map(c=>c.textContent.trim().toLowerCase()).join(' ');
-        if(!headerSkipped && cells.some(c=>c.tagName==='TH') && /narration|on ?screen|scene|visual|voice/.test(txt)){ headerSkipped=true; return; }
-        let slug='',vo='',vis='';
+        if(!headerSkipped && cells.some(c=>c.tagName==='TH') && /narration|on ?screen|scene|visual|voice|action/.test(txt)){ headerSkipped=true; return; }
+        let slug='',vo='',vis=''; const extra={};
+        cells.filter(c=>c.dataset.k).forEach(c=>{ extra[c.dataset.k]=c.innerHTML.trim(); });
+        cells=cells.filter(c=>!c.dataset.k);
         if(cells.length>=3){ slug=cells[0].innerHTML.trim(); vo=cells[1].innerHTML.trim(); vis=cells.slice(2).map(c=>c.innerHTML.trim()).join(' '); }
         else if(cells.length===2){ vo=cells[0].innerHTML.trim(); vis=cells[1].innerHTML.trim(); }
         else { vo=cells[0].innerHTML.trim(); }
-        out.push({slug,vo,vis,fid:tr.dataset.fid||null});
+        out.push({slug,vo,vis,fid:tr.dataset.fid||null,extra});
       });
-      if(out.length) return out.map((s,i)=>({slug:s.slug||('Scene '+(i+1)),vo:s.vo||'',vis:s.vis||'',fid:s.fid}));
+      if(out.length) return out.map((s,i)=>({slug:s.slug||('Scene '+(i+1)),vo:s.vo||'',vis:s.vis||'',fid:s.fid,extra:s.extra||{}}));
     }
     // free rich text → split into scenes on headings; "VO:" paragraphs → narration, others → on-screen
     const blocks=[...d.children].length?[...d.children]:[d];
@@ -8181,7 +8257,8 @@ function showEditorColorPicker(anchorEl,callback){
       slug:(r.querySelector('.sp-scene-slug')?.innerText||'').trim(),
       vo:spCleanFieldHTML(r.querySelector('.sp-vo')),
       vis:spCleanFieldHTML(r.querySelector('.sp-vis')),
-      fid:r.dataset.fid||null
+      fid:r.dataset.fid||null,
+      extra:Object.fromEntries([...r.querySelectorAll('.sp-x[data-k]')].map(x=>[x.dataset.k,spCleanFieldHTML(x)]))
     }));
   }
   function spBufferFromScenes(){ const ed=spEl('sp-editor'); if(ed) ed.innerHTML=spScenesToHTML(); }
@@ -8195,8 +8272,8 @@ function showEditorColorPicker(anchorEl,callback){
         <button class="sp-scene-del" title="Delete scene" aria-label="Delete scene">×</button>
       </div>
       <div class="sp-scene-body">
-        <div><div class="sp-col-label">Narration</div><div class="sp-vo sp-ed" contenteditable data-ph="What we hear…">${s.vo||''}</div></div>
-        <div class="sp-vis-col"><span class="sp-col-grip" title="drag to resize the columns · double-click to reset"></span><div class="sp-scene-thumb"></div><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
+        <div><div class="sp-col-label">Voice Over</div><div class="sp-vo sp-ed" contenteditable data-ph="What we hear…">${s.vo||''}</div></div>
+        <div class="sp-vis-col"><span class="sp-col-grip" title="drag to resize the columns · double-click to reset"></span><div class="sp-scene-thumb"></div><div class="sp-col-label">Action</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div>${spExtraKeys().map(k=>`<div class="sp-col-label sp-x-label">${spEscAttr(spFieldLabel(k))}</div><div class="sp-vis sp-x sp-ed" contenteditable data-k="${k}" data-ph="${spEscAttr(spFieldLabel(k))}…">${(s.extra&&s.extra[k])||''}</div>`).join('')}</div>
       </div>
     </section>`;
   }
@@ -8269,7 +8346,7 @@ function showEditorColorPicker(anchorEl,callback){
     document.querySelectorAll('#sp-doc .sp-scene').forEach(s=>spIO.observe(s));
   }
   function spAddScene(){
-    spReadScenesFromDOM(); spScenes.push({slug:'New scene',vo:'',vis:''});
+    spReadScenesFromDOM(); spScenes.push({slug:'New scene',vo:'',vis:'',extra:{}});
     spRenderScenes(); spBufferFromScenes(); spSyncOut();
     const last=document.querySelector('#sp-doc .sp-scene:last-of-type .sp-vo'); if(last){ last.focus(); last.scrollIntoView({behavior:'smooth',block:'center'}); }
   }
