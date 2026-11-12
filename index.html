@@ -1837,11 +1837,17 @@ body.light .sp-budget{background:rgba(251,250,248,.92);backdrop-filter:blur(10px
 .sp-scene-del{appearance:none;border:none;cursor:pointer;width:26px;height:26px;border-radius:8px;flex:none;background:transparent;color:var(--ink-faint);font-size:18px;line-height:1;opacity:0;transition:opacity .15s,background .15s,color .15s;}
 .sp-scene:hover .sp-scene-del{opacity:1;}
 .sp-scene-del:hover{background:color-mix(in srgb,var(--red) 14%,#fff);color:var(--red);}
-.sp-scene-body{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;}
+.sp-scene-body{display:grid;grid-template-columns:minmax(0,calc(var(--sp-nar,58)*1%)) minmax(0,1fr);gap:22px;}
+.sp-col-grip{position:absolute;left:-7px;top:0;bottom:0;width:16px;cursor:col-resize;z-index:2;touch-action:none;}
+.sp-col-grip:hover,body.sp-resizing .sp-col-grip{background:linear-gradient(to right,transparent 6px,var(--accent) 6px,var(--accent) 10px,transparent 10px);}
+.sp-thumb-grip{position:absolute;right:-5px;bottom:-5px;width:16px;height:16px;cursor:nwse-resize;border-right:3px solid var(--accent);border-bottom:3px solid var(--accent);border-radius:0 0 6px 0;opacity:0;transition:opacity .12s;touch-action:none;}
+.sp-scene-thumb:hover .sp-thumb-grip,body.sp-resizing .sp-thumb-grip{opacity:1;}
+body.sp-resizing{user-select:none;-webkit-user-select:none;}
+.sp-thumb-note{font-size:11.5px;color:var(--ink-faint);padding:10px 12px;border:1px dashed var(--line);border-radius:8px;}
 .sp-col-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:6px;}
 .sp-vis-col{position:relative;padding-left:22px;}
-.sp-scene-thumb{display:none;margin-bottom:10px;}
-.sp-scene-thumb img{display:block;width:100%;max-width:260px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+.sp-scene-thumb{display:none;margin-bottom:10px;position:relative;width:calc(var(--sp-thumb,260)*1px);max-width:100%;}
+.sp-scene-thumb img,.sp-scene-thumb video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#000;}
 .sp-vis-col::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:2px;border-radius:2px;background:var(--line);}
 .sp-vo{font-size:calc(16px*var(--sp-zoom,1));line-height:1.6;color:var(--ink);outline:none;}
 .sp-vis{font-size:calc(13.5px*var(--sp-zoom,1));line-height:1.55;color:var(--ink-soft);outline:none;}
@@ -7859,10 +7865,15 @@ function showEditorColorPicker(anchorEl,callback){
     document.querySelectorAll('#sp-doc .sp-scene').forEach(el=>{
       const box=el.querySelector('.sp-scene-thumb'); if(!box)return;
       const f=on&&el.dataset.fid?byId.get(el.dataset.fid):null;
-      const src=(f&&f.image)||'';
+      // image, or the frame's video (playable while it is loaded this session; its name otherwise)
+      const vurl=(f&&!f.image&&f.videoName&&typeof sessionVideoURLs!=='undefined')?(sessionVideoURLs.get(f.id)||''):'';
+      const src=(f&&f.image)||(vurl?'video:'+vurl:'')||((f&&f.videoName)?'name:'+f.videoName:'');
       if(box.dataset.src===src)return;
       box.dataset.src=src; box.innerHTML='';
-      if(src){ const im=document.createElement('img'); im.loading='lazy'; im.decoding='async'; im.alt='storyboard frame'; im.src=src; box.appendChild(im); }
+      if(f&&f.image){ const im=document.createElement('img'); im.loading='lazy'; im.decoding='async'; im.alt='storyboard frame'; im.src=f.image; box.appendChild(im); }
+      else if(vurl){ const v=document.createElement('video'); v.src=vurl; v.muted=true; v.controls=true; v.playsInline=true; v.preload='metadata'; box.appendChild(v); }
+      else if(src){ const n=document.createElement('div'); n.className='sp-thumb-note'; n.textContent='🎬 '+f.videoName+' — add the video to the frame again to play it here'; box.appendChild(n); }
+      if(src){ const g=document.createElement('span'); g.className='sp-thumb-grip'; g.title='drag to resize the frame pictures'; box.appendChild(g); }
       box.style.display=src?'block':'none';
     });
   }
@@ -8130,7 +8141,7 @@ function showEditorColorPicker(anchorEl,callback){
       </div>
       <div class="sp-scene-body">
         <div><div class="sp-col-label">Narration</div><div class="sp-vo sp-ed" contenteditable data-ph="What we hear…">${s.vo||''}</div></div>
-        <div class="sp-vis-col"><div class="sp-scene-thumb"></div><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
+        <div class="sp-vis-col"><span class="sp-col-grip" title="drag to resize the columns · double-click to reset"></span><div class="sp-scene-thumb"></div><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
       </div>
     </section>`;
   }
@@ -8138,7 +8149,36 @@ function showEditorColorPicker(anchorEl,callback){
     const doc=spEl('sp-doc'); if(!doc) return;
     doc.innerHTML=spScenes.map(spSceneHTML).join('')+`<button class="sp-add-scene" id="sp-doc-add">+ Add scene</button>`;
     if(document.body.classList.contains('script-version-locked')) doc.querySelectorAll('.sp-ed').forEach(e=>e.contentEditable='false');
+    spApplyLayout();
     spRenderRail(); spUpdateBudget(); spObserveScenes(); spRefreshThumbs();
+  }
+  // column split and frame-picture size, per project (b.scriptLayout = {nar: % of width, thumb: px})
+  function spApplyLayout(){
+    const doc=spEl('sp-doc'); if(!doc)return;
+    const L=(activeBoard()||{}).scriptLayout||{};
+    if(L.nar)doc.style.setProperty('--sp-nar',L.nar); else doc.style.removeProperty('--sp-nar');
+    if(L.thumb)doc.style.setProperty('--sp-thumb',L.thumb); else doc.style.removeProperty('--sp-thumb');
+  }
+  function spWireLayoutDrag(doc){
+    const save=(k,v)=>{ const b=activeBoard(); if(!b)return; b.scriptLayout=Object.assign({},b.scriptLayout); if(v==null)delete b.scriptLayout[k]; else b.scriptLayout[k]=v; spApplyLayout(); };
+    doc.addEventListener('pointerdown',e=>{
+      const g=e.target.closest&&e.target.closest('.sp-col-grip,.sp-thumb-grip'); if(!g)return;
+      e.preventDefault();
+      const isCol=g.classList.contains('sp-col-grip');
+      const body=g.closest('.sp-scene-body').getBoundingClientRect();
+      const box=isCol?null:g.closest('.sp-scene-thumb').getBoundingClientRect();
+      document.body.classList.add('sp-resizing');
+      const move=ev=>{
+        if(isCol)save('nar',+Math.min(80,Math.max(20,(ev.clientX-22-body.left)/body.width*100)).toFixed(1));
+        else save('thumb',Math.round(Math.min(1200,Math.max(80,ev.clientX-box.left))));
+      };
+      const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); document.body.classList.remove('sp-resizing'); autoSave(); };
+      document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+    });
+    doc.addEventListener('dblclick',e=>{
+      const g=e.target.closest&&e.target.closest('.sp-col-grip,.sp-thumb-grip'); if(!g)return;
+      save(g.classList.contains('sp-col-grip')?'nar':'thumb',null); autoSave();
+    });
   }
   function spRenderRail(){
     const rail=spEl('sp-rail'); if(!rail) return;
@@ -8196,6 +8236,7 @@ function showEditorColorPicker(anchorEl,callback){
   function spRenderFromBuffer(){ const ed=spEl('sp-editor'); spScenes=spParseScenes(ed?ed.innerHTML:''); spRenderScenes(); }
   function spInitSceneEditor(){
     const doc=spEl('sp-doc'); if(!doc||doc._wired) return; doc._wired=true;
+    spWireLayoutDrag(doc);
     doc.addEventListener('input',e=>{ if(e.target.closest('.sp-scene-slug')){ spReadScenesFromDOM(); spRenderRail(); } spReadScenesFromDOM(); spBufferFromScenes(); spUpdateBudget(); });
     doc.addEventListener('focusout',()=>{ spReadScenesFromDOM(); spBufferFromScenes(); spSyncOut(); });
     doc.addEventListener('click',e=>{ const del=e.target.closest('.sp-scene-del'); if(del){ spDelScene(+del.closest('.sp-scene').dataset.i); } if(e.target.closest('#sp-doc-add')) spAddScene(); });
