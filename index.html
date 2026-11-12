@@ -3870,6 +3870,55 @@ function migrateBoardVersions(b){
   if(!b.storyboards||!b.storyboards.versions||!b.storyboards.versions.length){
     const v=verMakeStoryboard(1);b.storyboards={activeId:v.id,versions:[v]}; // active holds no frames → buffer is its content
   }
+  verLinkBoard(b);
+}
+// ── ONE SET OF VERSIONS ──────────────────────────────────────────────────────
+// A project has a single version list. Each version number pairs a script cut
+// (b.scripts) with a storyboard cut (b.storyboards): switching, creating,
+// approving and sharing always act on both. The two stores stay separate records
+// so older saves still load. A side that never had a given number gets an empty
+// cut the first time that version is opened.
+const VER_RANK={draft:0,'in review':1,approved:2};
+function verByNo(store,no){return store.versions.find(v=>v.no===no)||null;}
+function verLinkBoard(b){
+  if(!b||b.verLinked)return;
+  const S=b.scripts,T=b.storyboards,sa=verActive(S),ta=verActive(T);
+  if(!sa||!ta)return;
+  // what is on screen now becomes one version: give both sides the same number
+  if(sa.no!==ta.no){
+    if(!verByNo(T,sa.no))ta.no=sa.no;
+    else if(!verByNo(S,ta.no))sa.no=ta.no;
+    else{const n=Math.max(verMaxNo(S),verMaxNo(T))+1;sa.no=n;ta.no=n;}
+  }
+  // where the two sides disagree, keep the more cautious setting: the earlier
+  // status, and hidden from the client unless both were already visible
+  S.versions.forEach(sv=>{
+    const tv=verByNo(T,sv.no);if(!tv)return;
+    if(sv.status!==tv.status){
+      const st=(VER_RANK[sv.status]||0)<=(VER_RANK[tv.status]||0)?sv:tv;
+      const keep={status:st.status,approvedAt:st.approvedAt||null,approvedBy:st.approvedBy||null};
+      Object.assign(sv,keep);Object.assign(tv,keep);
+    }
+    if(sv.visibility!==tv.visibility){sv.visibility='internal';tv.visibility='internal';}
+  });
+  sa.sync=!!b.scriptBoardSync;
+  b.verLinked=true;
+}
+function verEnsure(b,kind,no,like){
+  const store=verStore(b,kind);let v=verByNo(store,no);
+  if(!v){
+    v=(kind==='script')?verMakeScript(no,{html:''}):verMakeStoryboard(no,{frames:[]});
+    if(like){v.status=like.status;v.visibility=like.visibility;v.approvedAt=like.approvedAt||null;v.approvedBy=like.approvedBy||null;}
+    store.versions.push(v);
+  }
+  return v;
+}
+function verAfterChange(b){
+  sbHistory=[];sbRedo=[];if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
+  renderAll();reloadScriptEditors();
+  applyScriptLockState();applyStoryboardLockState();
+  if(typeof window.pbSyncBtnRefresh==='function')window.pbSyncBtnRefresh();
+  verOpenMenu=null;renderVersionBars();autoSave();
 }
 function verStore(b,kind){return kind==='script'?b.scripts:b.storyboards;}
 function verActive(store){return store?store.versions.find(v=>v.id===store.activeId):null;}
@@ -3913,56 +3962,48 @@ function applyStoryboardLockState(){
 
 function switchVersion(kind,targetId){
   const b=activeBoard();if(!b)return;migrateBoardVersions(b);
-  const store=verStore(b,kind);
-  if(targetId===store.activeId){verOpenMenu=null;renderVersionBars();return;}
-  const target=store.versions.find(v=>v.id===targetId);if(!target)return;
-  // another version holds a different set of scenes/frames; syncing across it
-  // would rewrite one side to match, so sync is switched off until re-enabled
-  const hadSync=!!b.scriptBoardSync;
-  if(hadSync){b.scriptBoardSync=false;if(typeof window.pbSyncBtnRefresh==='function')window.pbSyncBtnRefresh();}
-  if(kind==='script'){
-    syncEditorsToBuffer();verParkScript(b);verLoadScript(b,target);
-    reloadScriptEditors();applyScriptLockState();
-  }else{
-    verParkStoryboard(b);verLoadStoryboard(b,target);
-    sbHistory=[];sbRedo=[];if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
-    renderAll();applyStoryboardLockState();
-  }
-  verOpenMenu=null;renderVersionBars();autoSave();
-  showToast((kind==='script'?'script':'storyboard')+' → v'+target.no+(hadSync?' · script sync turned off':''));
+  const src=verStore(b,kind).versions.find(v=>v.id===targetId);if(!src)return;
+  const no=src.no,S=b.scripts,T=b.storyboards;
+  if(verActive(S).no===no&&verActive(T).no===no){verOpenMenu=null;renderVersionBars();return;}
+  syncEditorsToBuffer();if(typeof window.pbScriptSideFlush==='function')window.pbScriptSideFlush();
+  // each version remembers whether its script and storyboard were synced
+  verActive(S).sync=!!b.scriptBoardSync;b.scriptBoardSync=false;
+  const sv=verEnsure(b,'script',no,src),tv=verEnsure(b,'storyboard',no,src);
+  verParkScript(b);verParkStoryboard(b);
+  verLoadStoryboard(b,tv);verLoadScript(b,sv);
+  b.scriptBoardSync=!!sv.sync;
+  verAfterChange(b);
+  showToast('version → v'+no);
 }
 function newVersion(kind){
   const b=activeBoard();if(!b)return;migrateBoardVersions(b);
-  const store=verStore(b,kind);const fromNo=verActive(store)?verActive(store).no:0;
-  if(kind==='script'){
-    syncEditorsToBuffer();verParkScript(b); // freeze the outgoing version as its own snapshot
-    const nv=verMakeScript(verMaxNo(store)+1,{note:'from v'+fromNo});
-    store.versions.push(nv);store.activeId=nv.id; // buffer already holds the copy to iterate on
-    reloadScriptEditors();applyScriptLockState();
-  }else{
-    verParkStoryboard(b);
-    const nv=verMakeStoryboard(verMaxNo(store)+1,{note:'from v'+fromNo});
-    const idMap={};
-    b.frames=verClone(b.frames||[]);b.frames.forEach(f=>{const o=f.id;f.id=nextFrameId++;idMap[o]=f.id;}); // independent copy w/ fresh ids
-    if(b.scriptBoardSync&&typeof window.pbRemapSceneFrames==='function')window.pbRemapSceneFrames(idMap); // script scenes follow their frames
-    store.versions.push(nv);store.activeId=nv.id;
-    sbHistory=[];sbRedo=[];if(typeof updateUndoRedoBtns==='function')updateUndoRedoBtns();
-    renderAll();applyStoryboardLockState();
-  }
-  verOpenMenu=null;renderVersionBars();autoSave();
-  showToast('created v'+verActive(store).no+' · draft');
+  const S=b.scripts,T=b.storyboards;
+  syncEditorsToBuffer();if(typeof window.pbScriptSideFlush==='function')window.pbScriptSideFlush();
+  const fromNo=verActive(S).no,no=Math.max(verMaxNo(S),verMaxNo(T))+1,sync=!!b.scriptBoardSync;
+  verActive(S).sync=sync;
+  verParkScript(b);verParkStoryboard(b); // freeze the outgoing version, script and storyboard together
+  const ns=verMakeScript(no,{note:'from v'+fromNo,sync:sync}),nt=verMakeStoryboard(no,{note:'from v'+fromNo});
+  const idMap={};
+  b.frames=verClone(b.frames||[]);b.frames.forEach(f=>{const o=f.id;f.id=nextFrameId++;idMap[o]=f.id;}); // independent copy w/ fresh ids
+  S.versions.push(ns);S.activeId=ns.id;T.versions.push(nt);T.activeId=nt.id; // buffers already hold the copies to iterate on
+  applyScriptLockState();applyStoryboardLockState(); // the new draft is editable before its scenes are re-pointed
+  if(sync&&typeof window.pbRemapSceneFrames==='function')window.pbRemapSceneFrames(idMap); // script scenes follow their frames
+  verAfterChange(b);
+  showToast('created v'+no+' · draft');
 }
 function approveVersion(kind){setVersionStatus(kind,'approved');}
 function setVersionStatus(kind,status){
   const b=activeBoard();if(!b)return;migrateBoardVersions(b);
-  const v=verActive(verStore(b,kind));if(!v)return;
-  if(kind==='script')syncEditorsToBuffer();
-  v.status=status;v.updatedAt=verNowISO();
-  if(status==='approved'){v.approvedAt=verNowISO();v.approvedBy=verAuthor();}
-  else{v.approvedAt=null;v.approvedBy=null;}
-  if(kind==='script')applyScriptLockState();else applyStoryboardLockState();
+  const pair=[verActive(b.scripts),verActive(b.storyboards)].filter(Boolean);if(!pair.length)return;
+  syncEditorsToBuffer();if(typeof window.pbScriptSideFlush==='function')window.pbScriptSideFlush();
+  pair.forEach(v=>{
+    v.status=status;v.updatedAt=verNowISO();
+    if(status==='approved'){v.approvedAt=verNowISO();v.approvedBy=verAuthor();}
+    else{v.approvedAt=null;v.approvedBy=null;}
+  });
+  applyScriptLockState();applyStoryboardLockState();
   verOpenMenu=null;renderVersionBars();autoSave();
-  showToast(status==='approved'?('v'+v.no+' approved · locked'):('v'+v.no+' · '+status));
+  showToast(status==='approved'?('v'+pair[0].no+' approved · locked'):('v'+pair[0].no+' · '+status));
 }
 let verJustToggled=false;
 function toggleVerMenu(kind){verOpenMenu=(verOpenMenu&&verOpenMenu.kind===kind)?null:{kind:kind};verJustToggled=true;setTimeout(()=>{verJustToggled=false;},0);renderVersionBars();}
@@ -3977,14 +4018,14 @@ function renderVersionBar(kind){
   if(!active){hosts.forEach(x=>x.innerHTML='');return;}
   const locked=active.status==='approved';
   const q="'"+kind+"'";
-  let h='<span class="ver-label">'+(kind==='script'?'Script':'Storyboard')+'</span>';
+  let h='<span class="ver-label">Version</span>';
   h+='<span class="ver-pill" onclick="toggleVerMenu('+q+')" title="switch version">'
     +'<span class="vp-no">v'+active.no+'</span>'
     +'<span class="ver-badge '+verStatusClass(active.status)+'">'+active.status+'</span>'
     +(locked?VER_LOCK_ICO:'')+VER_CHEV+'</span>';
   const visOn=active.visibility==='client';
   h+='<button class="ver-eye'+(visOn?' on':'')+'" onclick="toggleVersionVisibility('+q+",'"+active.id+"')\" title=\""+(visOn?'visible to client — click to make internal':'internal — click to share this cut with the client')+"\">"+(visOn?EYE_ON:EYE_OFF)+'<span class=\"ver-eye-lbl\">'+(visOn?'Visible to Client':'Hidden from Client')+'</span>'+'</button>';
-  h+='<button class="ver-btn" onclick="newVersion('+q+')" title="duplicate this version into a new draft">'
+  h+='<button class="ver-btn" onclick="newVersion('+q+')" title="duplicate this version, script and storyboard together, into a new draft">'
     +'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><line x1="6" y1="1.5" x2="6" y2="10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="1.5" y1="6" x2="10.5" y2="6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
     +(locked?'Duplicate to edit':'New version')+'</button>';
   if(locked){
@@ -3998,9 +4039,12 @@ function renderVersionBar(kind){
   }
   // edited/approved time now shows on the project-hub section buttons instead of here
   if(verOpenMenu&&verOpenMenu.kind===kind){
-    const list=store.versions.slice().sort((a,c)=>c.no-a.no);
-    h+='<div class="ver-menu">'+list.map(v=>{
-      const cur=v.id===store.activeId;
+    // one list for script and storyboard: every version number either side has
+    const ok=(kind==='script')?'storyboard':'script';
+    const list=store.versions.map(v=>({v:v,k:kind})).concat(verStore(b,ok).versions.filter(v=>!verByNo(store,v.no)).map(v=>({v:v,k:ok}))).sort((a,c)=>c.v.no-a.v.no);
+    h+='<div class="ver-menu">'+list.map(it=>{
+      const v=it.v,q="'"+it.k+"'";
+      const cur=v.no===active.no;
       return '<div class="ver-menu-item'+(cur?' cur':'')+'" onclick="switchVersion('+q+",'"+v.id+"')\">"
         +'<span class="ver-menu-no">v'+v.no+'</span>'
         +'<span class="ver-badge '+verStatusClass(v.status)+'">'+v.status+'</span>'
@@ -4031,7 +4075,9 @@ const EYE_OFF='<svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-
 function toggleVersionVisibility(kind,versionId){
   const b=activeBoard();if(!b)return;migrateBoardVersions(b);
   const v=verStore(b,kind).versions.find(x=>x.id===versionId);if(!v)return;
-  v.visibility=(v.visibility==='client')?'internal':'client';v.updatedAt=verNowISO();
+  const vis=(v.visibility==='client')?'internal':'client';
+  // script and storyboard of a version are shown to, or hidden from, the client together
+  [b.scripts,b.storyboards].forEach(st=>{const x=verByNo(st,v.no);if(x){x.visibility=vis;x.updatedAt=verNowISO();}});
   renderVersionBars();autoSave();
   showToast('v'+v.no+(v.visibility==='client'?' → visible to client':' → internal'));
 }
@@ -4055,14 +4101,14 @@ function clientVisibleVersions(b,kind){return verStore(b,kind).versions.filter(v
 // Build the stripped, client-safe snapshot for a board (null if nothing is shared).
 function buildClientSnapshot(b){
   migrateBoardVersions(b);
-  const scripts=clientVisibleVersions(b,'script').map(v=>({no:v.no,status:v.status,html:verScriptHtml(b,v)}));
+  const scripts=clientVisibleVersions(b,'script').map(v=>({no:v.no,status:v.status,html:verScriptHtml(b,v)})).filter(x=>String(x.html||'').replace(/<[^>]*>/g,'').trim()||/<img/i.test(x.html||''));
   const storyboards=clientVisibleVersions(b,'storyboard').map(v=>{
     const c=verSbContent(b,v);
     const keys=(c.enabledFields&&c.enabledFields.length)?c.enabledFields:(c.sectionOrder||['voiceOver','action']);
     const fields=verFieldDefs(keys);
     return {no:v.no,status:v.status,fields:fields,
       frames:(c.frames||[]).map(f=>{const o={image:f.image||null};fields.forEach(fd=>o[fd.key]=f[fd.key]||'');return o;})};
-  });
+  }).filter(x=>x.frames.length);
   if(!scripts.length&&!storyboards.length)return null;
   return {v:1,project:{client:(b.meta&&b.meta.client)||'',title:(b.meta&&b.meta.project)||'',job:(b.meta&&b.meta.job)||''},
     lead:(typeof _curPanel!=='undefined'&&_curPanel==='script')?'script':'storyboard',
