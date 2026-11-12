@@ -1837,11 +1837,17 @@ body.light .sp-budget{background:rgba(251,250,248,.92);backdrop-filter:blur(10px
 .sp-scene-del{appearance:none;border:none;cursor:pointer;width:26px;height:26px;border-radius:8px;flex:none;background:transparent;color:var(--ink-faint);font-size:18px;line-height:1;opacity:0;transition:opacity .15s,background .15s,color .15s;}
 .sp-scene:hover .sp-scene-del{opacity:1;}
 .sp-scene-del:hover{background:color-mix(in srgb,var(--red) 14%,#fff);color:var(--red);}
-.sp-scene-body{display:grid;grid-template-columns:1.5fr 1fr;gap:22px;}
+.sp-scene-body{display:grid;grid-template-columns:minmax(0,calc(var(--sp-nar,58)*1%)) minmax(0,1fr);gap:22px;}
+.sp-col-grip{position:absolute;left:-7px;top:0;bottom:0;width:16px;cursor:col-resize;z-index:2;touch-action:none;}
+.sp-col-grip:hover,body.sp-resizing .sp-col-grip{background:linear-gradient(to right,transparent 6px,var(--accent) 6px,var(--accent) 10px,transparent 10px);}
+.sp-thumb-grip{position:absolute;right:-5px;bottom:-5px;width:16px;height:16px;cursor:nwse-resize;border-right:3px solid var(--accent);border-bottom:3px solid var(--accent);border-radius:0 0 6px 0;opacity:0;transition:opacity .12s;touch-action:none;}
+.sp-scene-thumb:hover .sp-thumb-grip,body.sp-resizing .sp-thumb-grip{opacity:1;}
+body.sp-resizing{user-select:none;-webkit-user-select:none;}
+.sp-thumb-note{font-size:11.5px;color:var(--ink-faint);padding:10px 12px;border:1px dashed var(--line);border-radius:8px;}
 .sp-col-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);margin-bottom:6px;}
 .sp-vis-col{position:relative;padding-left:22px;}
-.sp-scene-thumb{display:none;margin-bottom:10px;}
-.sp-scene-thumb img{display:block;width:100%;max-width:260px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+.sp-scene-thumb{display:none;margin-bottom:10px;position:relative;width:calc(var(--sp-thumb,260)*1px);max-width:100%;}
+.sp-scene-thumb img,.sp-scene-thumb video{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:#000;}
 .sp-vis-col::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:2px;border-radius:2px;background:var(--line);}
 .sp-vo{font-size:calc(16px*var(--sp-zoom,1));line-height:1.6;color:var(--ink);outline:none;}
 .sp-vis{font-size:calc(13.5px*var(--sp-zoom,1));line-height:1.55;color:var(--ink-soft);outline:none;}
@@ -3356,8 +3362,9 @@ async function cloudLoad(){
   try{
     // Signed-in mode: read only this user's own row (session token → RLS).
     if(AUTH_ENABLED&&authUser&&sbClient){
-      const {data,error}=await sbClient.from('prod_buddy_sync').select('data').eq('user_id',authUser.id).maybeSingle();
+      const {data,error}=await sbClient.from('prod_buddy_sync').select('data,updated_at').eq('user_id',authUser.id).maybeSingle();
       if(error)throw error;
+      cloudRev=data?data.updated_at:null;
       return data?data.data:null;
     }
     // Legacy/shared mode (no auth): the single 'default' row via the anon key.
@@ -3458,14 +3465,55 @@ async function offloadImages(){
 
 let cloudSaveTimer=null;
 let cloudSaveBusy=false,cloudSaveQueued=null;
+// The whole account is one saved row, so a page that loaded earlier (another
+// tab, another computer) would overwrite newer work with its old copy. cloudRev
+// is the row's updated_at as this page last loaded or saved it; a save only goes
+// through while the row still carries it. Otherwise saving stops and the user chooses.
+let cloudRev=null,cloudDirty=false,cloudBlocked=false,cloudForce=false,cloudCheckAt=0;
+function cloudConflict(){
+  cloudBlocked=true; setSaveIndicator('cloud-error');
+  if(document.getElementById('pb-conflict'))return;
+  const ov=document.createElement('div'); ov.id='pb-conflict';
+  ov.style.cssText='position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;';
+  ov.innerHTML='<div class="shd-card"><div class="shd-head"><span>Newer changes were saved somewhere else</span></div>'
+    +'<div class="shd-msg">Your projects were changed in another window or on another computer after this page loaded. Saving from here would replace those changes with this older copy, so saving is paused.</div>'
+    +'<div class="shd-actions"><button class="shd-btn primary" data-a="load">Load the latest</button><button class="shd-btn" data-a="force">Keep this copy instead</button></div>'
+    +'<div class="shd-note" style="padding:0 18px 16px;">Load the latest drops what you changed on this page since it loaded. Keep this copy replaces what was saved elsewhere.</div></div>';
+  ov.addEventListener('click',e=>{
+    const bt=e.target.closest('button[data-a]'); if(!bt)return;
+    if(bt.dataset.a==='load'){ location.reload(); return; }
+    ov.remove(); cloudBlocked=false; cloudForce=true;
+    try{cloudSave(getState());}catch(err){console.error(err);}
+  });
+  document.body.appendChild(ov);
+}
+// Coming back to this page: if it has nothing unsaved and the saved row moved on, load the newer copy.
+async function cloudCheckNewer(){
+  if(isLocalFile||cloudBlocked||cloudSaveBusy||!cloudRev||!(AUTH_ENABLED&&authUser&&sbClient))return;
+  if(Date.now()-cloudCheckAt<15000)return; cloudCheckAt=Date.now();
+  try{
+    const {data,error}=await sbClient.from('prod_buddy_sync').select('updated_at').eq('user_id',authUser.id).maybeSingle();
+    if(error||!data||cloudSaveBusy||cloudBlocked)return;
+    if(new Date(data.updated_at).getTime()===new Date(cloudRev).getTime())return;
+    if(cloudDirty||autoSaveTimer_pending()){ cloudConflict(); return; }
+    location.reload();
+  }catch(e){console.warn('cloud check failed',e);}
+}
+let autoSavePending=false;
+function autoSaveTimer_pending(){return autoSavePending;}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)cloudCheckNewer(); });
+window.addEventListener('focus',()=>cloudCheckNewer());
 function cloudSave(state){
   if(isLocalFile)return;
+  cloudDirty=true;
+  if(cloudBlocked)return;
   clearTimeout(cloudSaveTimer);
   cloudSaveTimer=setTimeout(()=>cloudSaveAttempt(state,0),1500);
 }
 async function cloudSaveAttempt(state,tries){
   // one save in flight at a time; a save requested meanwhile runs right after
   if(cloudSaveBusy){cloudSaveQueued=state;return;}
+  if(cloudBlocked)return;
   cloudSaveBusy=true;
   try{
     const off=await offloadImages();
@@ -3475,9 +3523,27 @@ async function cloudSaveAttempt(state,tries){
     }
     if(AUTH_ENABLED&&authUser&&sbClient){
       // Signed-in mode: upsert this user's own row (id=user_id=their uid).
-      const {error}=await sbClient.from('prod_buddy_sync')
-        .upsert({id:authUser.id,user_id:authUser.id,data:state,updated_at:new Date().toISOString()},{onConflict:'id'});
-      if(error)throw error;
+      const stamp=new Date().toISOString();
+      let wrote=false;
+      if(cloudRev&&!cloudForce){
+        // write only if the row is still the one this page loaded or last saved
+        const {data:rows,error}=await sbClient.from('prod_buddy_sync')
+          .update({data:state,updated_at:stamp}).eq('user_id',authUser.id).eq('updated_at',cloudRev).select('updated_at');
+        if(error)throw error;
+        if(rows&&rows.length){ cloudRev=rows[0].updated_at; wrote=true; }
+        else{
+          const {data:cur,error:e2}=await sbClient.from('prod_buddy_sync').select('updated_at').eq('user_id',authUser.id).maybeSingle();
+          if(e2)throw e2;
+          if(cur){ cloudConflict(); return; }   // changed elsewhere → stop, ask
+        }
+      }
+      if(!wrote){
+        const {data:rows,error}=await sbClient.from('prod_buddy_sync')
+          .upsert({id:authUser.id,user_id:authUser.id,data:state,updated_at:stamp},{onConflict:'id'}).select('updated_at');
+        if(error)throw error;
+        cloudRev=(rows&&rows[0]&&rows[0].updated_at)||stamp; cloudForce=false;
+      }
+      if(!cloudSaveQueued)cloudDirty=false;
     }else{
       // Legacy/shared mode: the single 'default' row via the anon key.
       await sbFetch('/rest/v1/prod_buddy_sync',{
@@ -3690,7 +3756,9 @@ function autoSave(){
   try{const _b=(typeof activeBoard==='function')?activeBoard():null;if(_b)_b.updatedAt=Date.now();}catch(e){}
   stampActivePanelEdited();
   clearTimeout(autoSaveTimer);setSaveIndicator('saving');
+  autoSavePending=true;
   autoSaveTimer=setTimeout(()=>{
+    autoSavePending=false;
     // two-way sync: edits made on the storyboard flow back into the script
     try{if(typeof window.pbSyncFromStoryboard==='function')window.pbSyncFromStoryboard();}catch(e){console.warn('storyboard → script sync failed',e);}
     let state;
@@ -4823,7 +4891,9 @@ async function init(){
     $('script-editor').innerHTML='';
     const b=activeBoard();if(b)b.scriptHtml='';
     const spEd=document.getElementById('sp-editor');if(spEd)spEd.innerHTML='';
-    autoSave();showToast('script cleared');
+    const off=pbScriptSyncOff();
+    if(typeof window.spLoadFromBoard==='function')window.spLoadFromBoard();
+    autoSave();showToast('script cleared'+(off?' · storyboard sync turned off':''));
   });
   $('script-file-input').addEventListener('change',handlePDFImport);
   $('sb-import-input').addEventListener('change',handleStoryboardImport);
@@ -4834,9 +4904,12 @@ async function init(){
   $('script-editor').addEventListener('input',()=>{
     const b=activeBoard();if(!b)return;
     b.scriptHtml=getCleanScriptHtml();
-    syncEditorVOToFrames();
+    // a scene script goes through the same linked sync as the Script tab;
+    // only an old free-form table still uses the by-position voice over push
+    if(!(typeof window.pbScriptSideEdit==='function'&&window.pbScriptSideEdit()))syncEditorVOToFrames();
     autoSave();
   });
+  $('script-editor').addEventListener('focusout',()=>{ if(typeof window.pbScriptSideFlush==='function')window.pbScriptSideFlush(); });
   $('script-editor').addEventListener('keydown',handleEditorKeydown);
 
   ['meta-client','meta-project','meta-job','meta-version'].forEach(id=>{
@@ -4887,6 +4960,14 @@ async function init(){
   initResizeHandle();
 }
 
+// Replacing the whole script (clear / import) breaks the scene ⇄ frame links,
+// so sync is turned off rather than left to re-pair on its own.
+function pbScriptSyncOff(){
+  const b=activeBoard(); if(!b||!b.scriptBoardSync)return false;
+  b.scriptBoardSync=false;
+  if(typeof window.pbSyncBtnRefresh==='function')window.pbSyncBtnRefresh();
+  return true;
+}
 // ── RESIZE HANDLE ─────────────────────────────────────────────────────────
 function initResizeHandle(){
   const handle=$('resize-handle');
@@ -5040,6 +5121,7 @@ async function handleDocxImport(e){
     const editor=$('script-editor');
     editor.innerHTML=result.value||'<p>(empty document)</p>';
     const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+    if(pbScriptSyncOff())showToast('storyboard sync turned off for the imported script');
     // keep script tab editor in sync
     const spEd=document.getElementById('sp-editor');
     if(spEd)spEd.innerHTML=editor.innerHTML;
@@ -5277,6 +5359,7 @@ async function handlePDFImport(e){
     }
 
     const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+    pbScriptSyncOff();
     // keep script tab editor in sync
     const spEd2=document.getElementById('sp-editor');
     if(spEd2)spEd2.innerHTML=editor.innerHTML;
@@ -6082,19 +6165,6 @@ function renderBoard(){
       e.stopPropagation();
       if(frame.image&&!hasVideo) openAnnotator(frame);
     });
-
-    // Image/Video type toggle buttons (show on hover when empty or to switch)
-    if(!hasVideo){
-      const typeBtns=document.createElement('div');typeBtns.className='frame-img-type-btns';
-      const imgBtn=document.createElement('button');imgBtn.className='frame-type-btn'+(frame.image?' active':'');imgBtn.textContent='img';
-      imgBtn.title='upload image';
-      imgBtn.addEventListener('click',e=>{e.stopPropagation();fi.click();});
-      const vidBtn=document.createElement('button');vidBtn.className='frame-type-btn'+(frame.videoName?' active':'');vidBtn.textContent='🎬 video';
-      vidBtn.title='upload video (mp4, mov, webm)';
-      vidBtn.addEventListener('click',e=>{e.stopPropagation();fv.click();});
-      typeBtns.appendChild(imgBtn);typeBtns.appendChild(vidBtn);
-      imgArea.appendChild(typeBtns);
-    }
 
     // Drag-drop: accept both image and video
     imgArea.addEventListener('dragover',e=>{if(!dragCardId){e.preventDefault();e.stopPropagation();card.classList.add('img-drag-over');}});
@@ -7807,18 +7877,52 @@ function showEditorColorPicker(anchorEl,callback){
   function spWriteBuffer(b){
     spBufferFromScenes();
     const ed=spEl('sp-editor'); b.scriptHtml=ed.innerHTML;
-    const sbEd=spEl('script-editor'); if(sbEd&&sbEd.innerHTML!==ed.innerHTML)sbEd.innerHTML=ed.innerHTML;
+    const sbEd=spEl('script-editor'); if(!sbEd||sbEd.innerHTML===ed.innerHTML)return;
+    const ae=document.activeElement;
+    if(ae&&ae.closest&&ae.closest('#script-editor')){
+      // being typed in → leave the text and caret alone, only stamp the frame links on its rows
+      const rows=[...sbEd.querySelectorAll('table.sp-scene-table tbody tr')];
+      if(rows.length===spScenes.length){
+        rows.forEach((r,i)=>{ const f=spScenes[i].fid; if(f!=null&&f!=='')r.dataset.fid=f; else delete r.dataset.fid; });
+        return;
+      }
+    }
+    sbEd.innerHTML=ed.innerHTML;
+    if(typeof initTableColumnResize==='function')setTimeout(initTableColumnResize,50);
   }
+  // The storyboard's side script panel edits the same scene table as raw rows.
+  // Its edits are parsed back into scenes (rows keep their data-fid), shown in
+  // the Script tab, and pushed to the linked frames, the same path as a Script tab edit.
+  let spSideT=null;
+  function spSideApply(){
+    clearTimeout(spSideT); spSideT=null;
+    const b=activeBoard(), ed=spEl('sp-editor'); if(!b||!ed)return;
+    if(document.body.classList.contains('script-version-locked'))return;
+    ed.innerHTML=b.scriptHtml||'';
+    spScenes=spParseScenes(ed.innerHTML); spRenderScenes(); spUpdateWordCount();
+    if(b.scriptBoardSync)spPushToStoryboard(true);
+  }
+  window.pbScriptSideEdit=function(){
+    const sb=spEl('script-editor'); if(!sb||!sb.querySelector('table.sp-scene-table'))return false;
+    clearTimeout(spSideT); spSideT=setTimeout(spSideApply,300);
+    return true;
+  };
+  window.pbScriptSideFlush=function(){ if(spSideT)spSideApply(); };
   function spRefreshThumbs(){
     const b=activeBoard(); const on=!!(b&&b.scriptBoardSync);
     const byId=on?new Map((b.frames||[]).map(f=>[String(f.id),f])):null;
     document.querySelectorAll('#sp-doc .sp-scene').forEach(el=>{
       const box=el.querySelector('.sp-scene-thumb'); if(!box)return;
       const f=on&&el.dataset.fid?byId.get(el.dataset.fid):null;
-      const src=(f&&f.image)||'';
+      // image, or the frame's video (playable while it is loaded this session; its name otherwise)
+      const vurl=(f&&!f.image&&f.videoName&&typeof sessionVideoURLs!=='undefined')?(sessionVideoURLs.get(f.id)||''):'';
+      const src=(f&&f.image)||(vurl?'video:'+vurl:'')||((f&&f.videoName)?'name:'+f.videoName:'');
       if(box.dataset.src===src)return;
       box.dataset.src=src; box.innerHTML='';
-      if(src){ const im=document.createElement('img'); im.loading='lazy'; im.decoding='async'; im.alt='storyboard frame'; im.src=src; box.appendChild(im); }
+      if(f&&f.image){ const im=document.createElement('img'); im.loading='lazy'; im.decoding='async'; im.alt='storyboard frame'; im.src=f.image; box.appendChild(im); }
+      else if(vurl){ const v=document.createElement('video'); v.src=vurl; v.muted=true; v.controls=true; v.playsInline=true; v.preload='metadata'; box.appendChild(v); }
+      else if(src){ const n=document.createElement('div'); n.className='sp-thumb-note'; n.textContent='🎬 '+f.videoName+' — add the video to the frame again to play it here'; box.appendChild(n); }
+      if(src){ const g=document.createElement('span'); g.className='sp-thumb-grip'; g.title='drag to resize the frame pictures'; box.appendChild(g); }
       box.style.display=src?'block':'none';
     });
   }
@@ -7875,6 +7979,7 @@ function showEditorColorPicker(anchorEl,callback){
     }
     if(document.body.classList.contains('script-version-locked'))return false;
     const ed=spEl('sp-editor'); if(!ed)return false;
+    if(spSideT)spSideApply();   // a side-panel edit still waiting goes to the frames first
     if(ed.innerHTML!==(b.scriptHtml||''))ed.innerHTML=b.scriptHtml||'';
     const scenes=spParseScenes(ed.innerHTML);
     const frames=b.frames||[];
@@ -8085,7 +8190,7 @@ function showEditorColorPicker(anchorEl,callback){
       </div>
       <div class="sp-scene-body">
         <div><div class="sp-col-label">Narration</div><div class="sp-vo sp-ed" contenteditable data-ph="What we hear…">${s.vo||''}</div></div>
-        <div class="sp-vis-col"><div class="sp-scene-thumb"></div><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
+        <div class="sp-vis-col"><span class="sp-col-grip" title="drag to resize the columns · double-click to reset"></span><div class="sp-scene-thumb"></div><div class="sp-col-label">On screen</div><div class="sp-vis sp-ed" contenteditable data-ph="What we see…">${s.vis||''}</div></div>
       </div>
     </section>`;
   }
@@ -8093,7 +8198,36 @@ function showEditorColorPicker(anchorEl,callback){
     const doc=spEl('sp-doc'); if(!doc) return;
     doc.innerHTML=spScenes.map(spSceneHTML).join('')+`<button class="sp-add-scene" id="sp-doc-add">+ Add scene</button>`;
     if(document.body.classList.contains('script-version-locked')) doc.querySelectorAll('.sp-ed').forEach(e=>e.contentEditable='false');
+    spApplyLayout();
     spRenderRail(); spUpdateBudget(); spObserveScenes(); spRefreshThumbs();
+  }
+  // column split and frame-picture size, per project (b.scriptLayout = {nar: % of width, thumb: px})
+  function spApplyLayout(){
+    const doc=spEl('sp-doc'); if(!doc)return;
+    const L=(activeBoard()||{}).scriptLayout||{};
+    if(L.nar)doc.style.setProperty('--sp-nar',L.nar); else doc.style.removeProperty('--sp-nar');
+    if(L.thumb)doc.style.setProperty('--sp-thumb',L.thumb); else doc.style.removeProperty('--sp-thumb');
+  }
+  function spWireLayoutDrag(doc){
+    const save=(k,v)=>{ const b=activeBoard(); if(!b)return; b.scriptLayout=Object.assign({},b.scriptLayout); if(v==null)delete b.scriptLayout[k]; else b.scriptLayout[k]=v; spApplyLayout(); };
+    doc.addEventListener('pointerdown',e=>{
+      const g=e.target.closest&&e.target.closest('.sp-col-grip,.sp-thumb-grip'); if(!g)return;
+      e.preventDefault();
+      const isCol=g.classList.contains('sp-col-grip');
+      const body=g.closest('.sp-scene-body').getBoundingClientRect();
+      const box=isCol?null:g.closest('.sp-scene-thumb').getBoundingClientRect();
+      document.body.classList.add('sp-resizing');
+      const move=ev=>{
+        if(isCol)save('nar',+Math.min(80,Math.max(20,(ev.clientX-22-body.left)/body.width*100)).toFixed(1));
+        else save('thumb',Math.round(Math.min(1200,Math.max(80,ev.clientX-box.left))));
+      };
+      const up=()=>{ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); document.body.classList.remove('sp-resizing'); autoSave(); };
+      document.addEventListener('pointermove',move); document.addEventListener('pointerup',up);
+    });
+    doc.addEventListener('dblclick',e=>{
+      const g=e.target.closest&&e.target.closest('.sp-col-grip,.sp-thumb-grip'); if(!g)return;
+      save(g.classList.contains('sp-col-grip')?'nar':'thumb',null); autoSave();
+    });
   }
   function spRenderRail(){
     const rail=spEl('sp-rail'); if(!rail) return;
@@ -8151,6 +8285,7 @@ function showEditorColorPicker(anchorEl,callback){
   function spRenderFromBuffer(){ const ed=spEl('sp-editor'); spScenes=spParseScenes(ed?ed.innerHTML:''); spRenderScenes(); }
   function spInitSceneEditor(){
     const doc=spEl('sp-doc'); if(!doc||doc._wired) return; doc._wired=true;
+    spWireLayoutDrag(doc);
     doc.addEventListener('input',e=>{ if(e.target.closest('.sp-scene-slug')){ spReadScenesFromDOM(); spRenderRail(); } spReadScenesFromDOM(); spBufferFromScenes(); spUpdateBudget(); });
     doc.addEventListener('focusout',()=>{ spReadScenesFromDOM(); spBufferFromScenes(); spSyncOut(); });
     doc.addEventListener('click',e=>{ const del=e.target.closest('.sp-scene-del'); if(del){ spDelScene(+del.closest('.sp-scene').dataset.i); } if(e.target.closest('#sp-doc-add')) spAddScene(); });
@@ -8364,6 +8499,7 @@ function showEditorColorPicker(anchorEl,callback){
       const editor=spEl('sp-editor');
       editor.innerHTML=result.value||'<p>(empty document)</p>';
       const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+      if(typeof pbScriptSyncOff==='function'&&pbScriptSyncOff())showToast('storyboard sync turned off for the imported script');
       if(typeof spRenderFromBuffer==='function')spRenderFromBuffer();   // auto-convert import → scenes
       // sync to storyboard script editor
       const sbEd=spEl('script-editor');if(sbEd)sbEd.innerHTML=editor.innerHTML;
@@ -8449,6 +8585,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
       if(!html.trim())html='<p>(no selectable text found — this PDF may be scanned or image-only)</p>';
       editor.innerHTML=html;
       const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+      if(typeof pbScriptSyncOff==='function'&&pbScriptSyncOff())showToast('storyboard sync turned off for the imported script');
       if(typeof spRenderFromBuffer==='function')spRenderFromBuffer();   // auto-convert import → scenes
       // keep storyboard script editor in sync
       const sbEd=spEl('script-editor');if(sbEd)sbEd.innerHTML=editor.innerHTML;
