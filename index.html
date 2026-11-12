@@ -4823,7 +4823,9 @@ async function init(){
     $('script-editor').innerHTML='';
     const b=activeBoard();if(b)b.scriptHtml='';
     const spEd=document.getElementById('sp-editor');if(spEd)spEd.innerHTML='';
-    autoSave();showToast('script cleared');
+    const off=pbScriptSyncOff();
+    if(typeof window.spLoadFromBoard==='function')window.spLoadFromBoard();
+    autoSave();showToast('script cleared'+(off?' · storyboard sync turned off':''));
   });
   $('script-file-input').addEventListener('change',handlePDFImport);
   $('sb-import-input').addEventListener('change',handleStoryboardImport);
@@ -4834,9 +4836,12 @@ async function init(){
   $('script-editor').addEventListener('input',()=>{
     const b=activeBoard();if(!b)return;
     b.scriptHtml=getCleanScriptHtml();
-    syncEditorVOToFrames();
+    // a scene script goes through the same linked sync as the Script tab;
+    // only an old free-form table still uses the by-position voice over push
+    if(!(typeof window.pbScriptSideEdit==='function'&&window.pbScriptSideEdit()))syncEditorVOToFrames();
     autoSave();
   });
+  $('script-editor').addEventListener('focusout',()=>{ if(typeof window.pbScriptSideFlush==='function')window.pbScriptSideFlush(); });
   $('script-editor').addEventListener('keydown',handleEditorKeydown);
 
   ['meta-client','meta-project','meta-job','meta-version'].forEach(id=>{
@@ -4887,6 +4892,14 @@ async function init(){
   initResizeHandle();
 }
 
+// Replacing the whole script (clear / import) breaks the scene ⇄ frame links,
+// so sync is turned off rather than left to re-pair on its own.
+function pbScriptSyncOff(){
+  const b=activeBoard(); if(!b||!b.scriptBoardSync)return false;
+  b.scriptBoardSync=false;
+  if(typeof window.pbSyncBtnRefresh==='function')window.pbSyncBtnRefresh();
+  return true;
+}
 // ── RESIZE HANDLE ─────────────────────────────────────────────────────────
 function initResizeHandle(){
   const handle=$('resize-handle');
@@ -5040,6 +5053,7 @@ async function handleDocxImport(e){
     const editor=$('script-editor');
     editor.innerHTML=result.value||'<p>(empty document)</p>';
     const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+    if(pbScriptSyncOff())showToast('storyboard sync turned off for the imported script');
     // keep script tab editor in sync
     const spEd=document.getElementById('sp-editor');
     if(spEd)spEd.innerHTML=editor.innerHTML;
@@ -5277,6 +5291,7 @@ async function handlePDFImport(e){
     }
 
     const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+    pbScriptSyncOff();
     // keep script tab editor in sync
     const spEd2=document.getElementById('sp-editor');
     if(spEd2)spEd2.innerHTML=editor.innerHTML;
@@ -7807,8 +7822,37 @@ function showEditorColorPicker(anchorEl,callback){
   function spWriteBuffer(b){
     spBufferFromScenes();
     const ed=spEl('sp-editor'); b.scriptHtml=ed.innerHTML;
-    const sbEd=spEl('script-editor'); if(sbEd&&sbEd.innerHTML!==ed.innerHTML)sbEd.innerHTML=ed.innerHTML;
+    const sbEd=spEl('script-editor'); if(!sbEd||sbEd.innerHTML===ed.innerHTML)return;
+    const ae=document.activeElement;
+    if(ae&&ae.closest&&ae.closest('#script-editor')){
+      // being typed in → leave the text and caret alone, only stamp the frame links on its rows
+      const rows=[...sbEd.querySelectorAll('table.sp-scene-table tbody tr')];
+      if(rows.length===spScenes.length){
+        rows.forEach((r,i)=>{ const f=spScenes[i].fid; if(f!=null&&f!=='')r.dataset.fid=f; else delete r.dataset.fid; });
+        return;
+      }
+    }
+    sbEd.innerHTML=ed.innerHTML;
+    if(typeof initTableColumnResize==='function')setTimeout(initTableColumnResize,50);
   }
+  // The storyboard's side script panel edits the same scene table as raw rows.
+  // Its edits are parsed back into scenes (rows keep their data-fid), shown in
+  // the Script tab, and pushed to the linked frames, the same path as a Script tab edit.
+  let spSideT=null;
+  function spSideApply(){
+    clearTimeout(spSideT); spSideT=null;
+    const b=activeBoard(), ed=spEl('sp-editor'); if(!b||!ed)return;
+    if(document.body.classList.contains('script-version-locked'))return;
+    ed.innerHTML=b.scriptHtml||'';
+    spScenes=spParseScenes(ed.innerHTML); spRenderScenes(); spUpdateWordCount();
+    if(b.scriptBoardSync)spPushToStoryboard(true);
+  }
+  window.pbScriptSideEdit=function(){
+    const sb=spEl('script-editor'); if(!sb||!sb.querySelector('table.sp-scene-table'))return false;
+    clearTimeout(spSideT); spSideT=setTimeout(spSideApply,300);
+    return true;
+  };
+  window.pbScriptSideFlush=function(){ if(spSideT)spSideApply(); };
   function spRefreshThumbs(){
     const b=activeBoard(); const on=!!(b&&b.scriptBoardSync);
     const byId=on?new Map((b.frames||[]).map(f=>[String(f.id),f])):null;
@@ -7875,6 +7919,7 @@ function showEditorColorPicker(anchorEl,callback){
     }
     if(document.body.classList.contains('script-version-locked'))return false;
     const ed=spEl('sp-editor'); if(!ed)return false;
+    if(spSideT)spSideApply();   // a side-panel edit still waiting goes to the frames first
     if(ed.innerHTML!==(b.scriptHtml||''))ed.innerHTML=b.scriptHtml||'';
     const scenes=spParseScenes(ed.innerHTML);
     const frames=b.frames||[];
@@ -8364,6 +8409,7 @@ function showEditorColorPicker(anchorEl,callback){
       const editor=spEl('sp-editor');
       editor.innerHTML=result.value||'<p>(empty document)</p>';
       const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+      if(typeof pbScriptSyncOff==='function'&&pbScriptSyncOff())showToast('storyboard sync turned off for the imported script');
       if(typeof spRenderFromBuffer==='function')spRenderFromBuffer();   // auto-convert import → scenes
       // sync to storyboard script editor
       const sbEd=spEl('script-editor');if(sbEd)sbEd.innerHTML=editor.innerHTML;
@@ -8449,6 +8495,7 @@ would you like to auto-create storyboard frames — one per paragraph?`;
       if(!html.trim())html='<p>(no selectable text found — this PDF may be scanned or image-only)</p>';
       editor.innerHTML=html;
       const b=activeBoard();if(b)b.scriptHtml=editor.innerHTML;
+      if(typeof pbScriptSyncOff==='function'&&pbScriptSyncOff())showToast('storyboard sync turned off for the imported script');
       if(typeof spRenderFromBuffer==='function')spRenderFromBuffer();   // auto-convert import → scenes
       // keep storyboard script editor in sync
       const sbEd=spEl('script-editor');if(sbEd)sbEd.innerHTML=editor.innerHTML;
