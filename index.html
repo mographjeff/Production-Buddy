@@ -347,7 +347,7 @@ body.light .script-btn:hover{background:var(--bg-2);color:var(--ink);}
 body.light .script-btn.sync-on{background:rgba(59,130,246,0.1);color:#2563eb !important;box-shadow:inset 0 0 0 1.5px rgba(59,130,246,0.4);}
 body.light .script-btn.primary{background:var(--accent);color:#fff !important;border-color:transparent;}
 body.light .script-btn.primary:hover{filter:brightness(1.06);}
-#script-file-input{display:none;}
+#script-file-input,#script-docx-input{display:none;}
 /* ── ARTIFACT VERSION BAR (Phase 1 versioning) ── */
 .ver-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;flex-shrink:0;font-size:11px;position:relative;background:#131313;border-bottom:1px solid rgba(255,255,255,0.08);flex-wrap:wrap;}
 body.light .ver-bar{background:#f6f4f0;border-color:#e4e0d9;}
@@ -2381,7 +2381,7 @@ catch(e){document.body.classList.add('light');}
     <label class="script-btn" id="sp-import-btn" style="position:relative;overflow:hidden;cursor:pointer;">import
       <input type="file" id="sp-import-input" accept=".docx,.pdf" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;"/>
     </label>
-    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced both ways; click again to stop syncing">⇄ storyboard</button>
+    <button class="script-btn" id="sp-push-board-btn" title="push scenes to the storyboard — narration → voice over, on screen → action, one frame per scene. stays synced both ways; click again to stop syncing">sync</button>
     <button class="script-btn primary" id="sp-share-client-btn" title="share a read-only link with your client &amp; export a PDF">Share with client</button>
     <input type="file" id="sp-docx-input" accept=".docx" style="display:none"/>
     <input type="file" id="sp-pdf-input" accept=".pdf" style="display:none"/>
@@ -2548,6 +2548,7 @@ catch(e){document.body.classList.add('light');}
   <button class="icon-btn" id="share-btn" title="share & export PDF" style="width:26px;height:26px;border-radius:5px;">
     <svg width="12" height="12" viewBox="0 0 15 15" fill="none"><path d="m13 7.5-5-5v3C4 6 2 8.5 2 12c1.5-2 3.5-3 6-3v3l5-4.5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
   </button>
+  <button class="script-btn primary" id="sb-share-client-btn" title="share a read-only link with your client &amp; export a PDF" style="margin-left:6px;" onclick="if(typeof openShareDialog==='function')openShareDialog()">Share with client</button>
 </div>
 
 <div id="main-body">
@@ -2560,6 +2561,7 @@ catch(e){document.body.classList.add('light');}
         <div class="script-actions">
           <button class="script-btn primary" id="script-docx-btn">import .docx</button>
           <button class="script-btn" id="script-clear-btn">clear</button>
+          <button class="script-btn" id="script-sync-btn" title="sync the script with the storyboard, both ways">sync</button>
           <input type="file" id="script-file-input" accept=".pdf"/>
           <input type="file" id="script-docx-input" accept=".docx"/>
         </div>
@@ -8103,7 +8105,11 @@ function showEditorColorPicker(anchorEl,callback){
     const b=activeBoard();
     const on=!!(b&&b.scriptBoardSync);
     btn.classList.toggle('sync-on',on);
-    btn.textContent=on?'⇄ synced':'⇄ storyboard';
+    btn.textContent=on?'synced':'sync';
+    // the same toggle in the storyboard's split-screen script panel
+    const side=spEl('script-sync-btn');
+    if(side){ side.classList.toggle('sync-on',on); side.textContent=on?'synced':'sync';
+      side.title=on?'script and storyboard are synced both ways — click to stop syncing':'sync the script with the storyboard, both ways — narration ↔ voice over, on screen ↔ action, one frame per scene'; }
     btn.title=on
       ?'script and storyboard are synced both ways — click to stop syncing'
       :'sync the script with the storyboard, both ways — narration ↔ voice over, on screen ↔ action, one frame per scene, and frame images show in the script';
@@ -8752,6 +8758,12 @@ would you like to auto-create storyboard frames — one per paragraph?`;
         return;
       }
       spEnableSync();
+    });
+
+    const _sideSync=spEl('script-sync-btn');
+    if(_sideSync)_sideSync.addEventListener('click',()=>{
+      if(typeof window.pbScriptSideFlush==='function')window.pbScriptSideFlush();   // scenes current before pairing
+      spEl('sp-push-board-btn').click();
     });
 
     // script text zoom (device preference, persisted in localStorage)
