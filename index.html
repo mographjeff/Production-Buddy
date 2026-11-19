@@ -3721,19 +3721,44 @@ function compressImageDataURL(dataURL,maxDim=1600,quality=0.82){
 // Read a dropped/picked file onto a frame, compressing photos on the way in.
 // GIFs (animation) and SVGs (vector) are stored as-is so they aren't flattened.
 function setFrameImageFromFile(frame,file){
+  // the card may have been redrawn since this handler was made → use the live frame
+  const live=()=>{const b=activeBoard();return (b&&(b.frames||[]).find(f=>f.id===frame.id))||frame;};
+  const apply=durl=>{
+    const f=live();
+    f.image=durl;f.videoName=null;
+    const old=sessionVideoURLs.get(f.id);if(old)URL.revokeObjectURL(old);
+    sessionVideoURLs.delete(f.id);
+    renderAll();autoSave();
+  };
+  const name=(file&&file.name)||'file';
   const r=new FileReader();
+  r.onerror=()=>showToast('couldn\'t read '+name);
   r.onload=ev=>{
-    const apply=durl=>{
-      frame.image=durl;frame.videoName=null;
-      const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
-      sessionVideoURLs.delete(frame.id);
-      renderAll();autoSave();
-    };
     const raw=ev.target.result;
-    if(/^data:image\/(gif|svg)/i.test(raw||''))apply(raw);
-    else compressImageDataURL(raw).then(apply);
+    if(/^data:image\/(gif|svg)/i.test(raw||'')){apply(raw);return;}
+    // the browser must be able to draw it; otherwise say so instead of leaving a blank frame
+    const probe=new Image();
+    probe.onload=()=>compressImageDataURL(raw).then(apply);
+    probe.onerror=()=>showToast('this browser can\'t show '+name+' — export it as PNG or JPG');
+    probe.src=raw;
   };
   r.readAsDataURL(file);
+}
+// A drop that carries no file (dragged from a web page or another app): use the picture's address.
+function setFrameImageFromDrop(frame,dt){
+  let url='';
+  try{
+    const html=dt.getData('text/html')||'';const m=html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    url=(m&&m[1])||(dt.getData('text/uri-list')||'').split(/\r?\n/).find(l=>l&&l[0]!=='#')||dt.getData('text/plain')||'';
+  }catch(e){}
+  url=String(url).trim().replace(/&amp;/g,'&');
+  if(!/^(https?:|data:image\/)/i.test(url)){showToast('nothing to add — drag an image or video file (PNG, JPG, GIF, MP4…)');return;}
+  if(/^data:/i.test(url)){fetch(url).then(r=>r.blob()).then(bl=>setFrameImageFromFile(frame,new File([bl],'image',{type:bl.type})));return;}
+  showToast('fetching image…');
+  fetch(url).then(r=>{if(!r.ok)throw new Error(r.status);return r.blob();}).then(bl=>{
+    if(!/^image\//i.test(bl.type))throw new Error('not an image');
+    setFrameImageFromFile(frame,new File([bl],url.split('/').pop().split('?')[0]||'image',{type:bl.type}));
+  }).catch(e=>{console.warn('dropped image url failed',e);showToast('couldn\'t fetch that picture — save it to disk first, then drag the file');});
 }
 // One-time maintenance: walk the loaded state and shrink any oversized raster
 // images saved before import-time compression existed (frames, annotation layers,
@@ -6232,14 +6257,18 @@ function renderBoard(){
     imgArea.addEventListener('dragleave',()=>card.classList.remove('img-drag-over'));
     imgArea.addEventListener('drop',e=>{
       card.classList.remove('img-drag-over');if(dragCardId)return;e.preventDefault();e.stopPropagation();
-      const file=e.dataTransfer.files[0];if(!file)return;
+      let file=e.dataTransfer.files[0];
+      if(!file&&e.dataTransfer.items){const it=[...e.dataTransfer.items].find(i=>i.kind==='file');if(it)file=it.getAsFile();}
+      if(!file){setFrameImageFromDrop(frame,e.dataTransfer);return;}
       if(file.type.startsWith('video/')||/\.(mp4|mov|webm)$/i.test(file.name)){
         const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
         sessionVideoURLs.set(frame.id,URL.createObjectURL(file));
         frame.videoName=file.name;frame.image=null;frame.annLayer=null;
         renderAll();autoSave();
-      } else if(file.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|svg|heic|bmp)$/i.test(file.name)){
+      } else if(file.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|svg|heic|heif|avif|bmp|tiff?)$/i.test(file.name)){
         setFrameImageFromFile(frame,file);
+      } else {
+        showToast('can\'t use '+file.name+' as a frame picture — export it as PNG or JPG, or drag a video');
       }
     });
 
