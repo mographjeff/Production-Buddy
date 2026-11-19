@@ -3744,6 +3744,56 @@ function setFrameImageFromFile(frame,file){
   };
   r.readAsDataURL(file);
 }
+// A file, or a picture from a web page or app, dropped on a storyboard frame.
+function pbFrameMediaDrop(frame,dt){
+  let file=dt.files&&dt.files[0];
+  if(!file&&dt.items){const it=[...dt.items].find(i=>i.kind==='file');if(it)file=it.getAsFile();}
+  if(!file){setFrameImageFromDrop(frame,dt);return;}
+  if(file.type.startsWith('video/')||/\.(mp4|mov|webm)$/i.test(file.name)){
+    const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
+    sessionVideoURLs.set(frame.id,URL.createObjectURL(file));
+    frame.videoName=file.name;frame.image=null;frame.annLayer=null;
+    renderAll();autoSave();
+  } else if(file.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|svg|heic|heif|avif|bmp|tiff?)$/i.test(file.name)){
+    setFrameImageFromFile(frame,file);
+  } else {
+    showToast('can\'t use '+file.name+' as a frame picture — export it as PNG or JPG, or drag a video');
+  }
+}
+// Files dragged in from the desktop are caught for the whole page, before any
+// element sees them, and given to the frame card under the pointer. This does not
+// depend on which part of the card the browser reports as the drop target, so a
+// file can be dropped anywhere on a frame (Safari did not deliver the drop to the
+// picture area of an empty frame).
+(function(){
+  const hasFiles=dt=>{try{return !!dt&&[...(dt.types||[])].includes('Files');}catch(e){return false;}};
+  const cardAt=e=>{
+    if(typeof _curPanel==='undefined'||_curPanel!=='storyboard')return null;
+    if(document.body.classList.contains('storyboard-version-locked'))return null;
+    const el=document.elementFromPoint(e.clientX,e.clientY)||e.target;
+    return (el&&el.closest)?el.closest('#board .frame-card'):null;
+  };
+  let lit=null;
+  const unlight=()=>{if(lit){lit.classList.remove('img-drag-over');lit=null;}};
+  document.addEventListener('dragover',e=>{
+    if(!hasFiles(e.dataTransfer)){unlight();return;}
+    const card=cardAt(e);
+    if(card!==lit){unlight();if(card){card.classList.add('img-drag-over');lit=card;}}
+    if(!card)return;
+    e.preventDefault();e.stopPropagation();
+    try{e.dataTransfer.dropEffect='copy';}catch(_){}
+  },true);
+  document.addEventListener('dragleave',e=>{if(!e.relatedTarget)unlight();},true);
+  document.addEventListener('drop',e=>{
+    unlight();
+    if(!hasFiles(e.dataTransfer))return;
+    const card=cardAt(e);if(!card)return;
+    const b=activeBoard();const frame=b&&(b.frames||[]).find(f=>String(f.id)===String(card.dataset.id));
+    if(!frame)return;
+    e.preventDefault();e.stopPropagation();
+    pbFrameMediaDrop(frame,e.dataTransfer);
+  },true);
+})();
 // A drop that carries no file (dragged from a web page or another app): use the picture's address.
 function setFrameImageFromDrop(frame,dt){
   let url='';
@@ -6257,19 +6307,7 @@ function renderBoard(){
     imgArea.addEventListener('dragleave',()=>card.classList.remove('img-drag-over'));
     imgArea.addEventListener('drop',e=>{
       card.classList.remove('img-drag-over');if(dragCardId)return;e.preventDefault();e.stopPropagation();
-      let file=e.dataTransfer.files[0];
-      if(!file&&e.dataTransfer.items){const it=[...e.dataTransfer.items].find(i=>i.kind==='file');if(it)file=it.getAsFile();}
-      if(!file){setFrameImageFromDrop(frame,e.dataTransfer);return;}
-      if(file.type.startsWith('video/')||/\.(mp4|mov|webm)$/i.test(file.name)){
-        const old=sessionVideoURLs.get(frame.id);if(old)URL.revokeObjectURL(old);
-        sessionVideoURLs.set(frame.id,URL.createObjectURL(file));
-        frame.videoName=file.name;frame.image=null;frame.annLayer=null;
-        renderAll();autoSave();
-      } else if(file.type.startsWith('image/')||/\.(png|jpe?g|gif|webp|svg|heic|heif|avif|bmp|tiff?)$/i.test(file.name)){
-        setFrameImageFromFile(frame,file);
-      } else {
-        showToast('can\'t use '+file.name+' as a frame picture — export it as PNG or JPG, or drag a video');
-      }
+      pbFrameMediaDrop(frame,e.dataTransfer);
     });
 
     const sections=document.createElement('div');sections.className='sections';
